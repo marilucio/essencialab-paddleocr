@@ -1,0 +1,17 @@
+# Arquivos a ignorar no deploy Railway
+.git
+.gitignore
+README.md
+*.md
+logs/
+temp/
+uploads/
+scripts/
+*.sh
+docker-compose.yml
+.env.example
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
