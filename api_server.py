@@ -469,45 +469,46 @@ def internal_error(error):
         'message': 'Tente novamente em alguns instantes'
     }), 500
 
-if __name__ == '__main__':
-    logger.info("Iniciando servidor PaddleOCR API", 
-               host=config_module.config.HOST, # Correto
-               port=config_module.config.PORT, # Correto
-               debug=config_module.config.DEBUG) # Correto
+# O Gunicorn é iniciado pelo Dockerfile, então este bloco não é mais necessário.
+# if __name__ == '__main__':
+#     logger.info("Iniciando servidor PaddleOCR API", 
+#                host=config_module.config.HOST, 
+#                port=config_module.config.PORT,
+#                debug=config_module.config.DEBUG)
     
-    # Configurar Flask para produção
-    app.config['MAX_CONTENT_LENGTH'] = config_module.config.MAX_FILE_SIZE # Correto
+#     # Configurar Flask para produção
+#     app.config['MAX_CONTENT_LENGTH'] = config_module.config.MAX_FILE_SIZE
     
-    if config_module.config.DEBUG: # Correto
-        app.run(host=config_module.config.HOST, port=config_module.config.PORT, debug=True) # Correto
-    else:
-        # Usar Gunicorn em produção
-        import gunicorn.app.base
+#     if config_module.config.DEBUG:
+#         app.run(host=config_module.config.HOST, port=config_module.config.PORT, debug=True)
+#     else:
+#         # Usar Gunicorn em produção
+#         import gunicorn.app.base
         
-        class StandaloneApplication(gunicorn.app.base.BaseApplication):
-            def __init__(self, app, options=None):
-                self.options = options or {}
-                self.application = app
-                super().__init__()
+#         class StandaloneApplication(gunicorn.app.base.BaseApplication):
+#             def __init__(self, app, options=None):
+#                 self.options = options or {}
+#                 self.application = app
+#                 super().__init__()
             
-            def load_config(self):
-                for key, value in self.options.items():
-                    self.cfg.set(key.lower(), value)
+#             def load_config(self):
+#                 for key, value in self.options.items():
+#                     self.cfg.set(key.lower(), value)
             
-            def load(self):
-                return self.application
+#             def load(self):
+#                 return self.application
         
-        options = {
-            'bind': f'{config_module.config.HOST}:{config_module.config.PORT}', # Correto
-            'workers': config_module.config.WORKERS, # Correto
-            'worker_class': 'sync',
-            'timeout': config_module.config.MAX_PROCESSING_TIME, # Correto
-            'keepalive': 2,
-            'max_requests': 1000,
-            'max_requests_jitter': 100,
-            'preload_app': True,
-            'access_logfile': '-',
-            'error_logfile': '-',
-        }
+#         options = {
+#             'bind': f'{config_module.config.HOST}:{config_module.config.PORT}',
+#             'workers': config_module.config.WORKERS,
+#             'worker_class': 'sync',
+#             'timeout': config_module.config.MAX_PROCESSING_TIME,
+#             'keepalive': 2,
+#             'max_requests': 1000,
+#             'max_requests_jitter': 100,
+#             'preload_app': True,
+#             'access_logfile': '-',
+#             'error_logfile': '-',
+#         }
         
-        StandaloneApplication(app, options).run()
+#         StandaloneApplication(app, options).run()
