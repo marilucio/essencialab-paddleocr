@@ -21,17 +21,17 @@ except ImportError:
     PADDLEOCR_AVAILABLE = False
     print("PaddleOCR não disponível. Instale com: pip install paddleocr")
 
-from config import get_config
+import config as config_module # Alterado para importar o módulo inteiro
 import structlog
 
 logger = structlog.get_logger()
-config = get_config()
+# config = get_config() # Esta linha não é mais necessária
 
 class MedicalOCRProcessor:
     """Processador principal para OCR de exames médicos"""
     
     def __init__(self):
-        self.config = config
+        self.config = config_module.config # Usar a instância importada
         self.ocr_engine = None
         self.structure_engine = None
         self._initialize_engines()

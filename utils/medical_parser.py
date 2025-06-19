@@ -10,10 +10,10 @@ from dataclasses import dataclass
 import structlog
 from unidecode import unidecode
 
-from config import get_config
+import config as config_module # Alterado para importar o módulo inteiro
 
 logger = structlog.get_logger()
-config = get_config()
+# config = get_config() # Esta linha não é mais necessária
 
 @dataclass
 class MedicalParameter:
@@ -50,7 +50,7 @@ class MedicalParameterParser:
     """Parser avançado para parâmetros médicos"""
     
     def __init__(self):
-        self.config = config
+        self.config = config_module.config # Usar a instância importada
         self._compile_patterns()
         self._load_medical_knowledge()
     
