@@ -16,13 +16,13 @@ from flask_cors import CORS
 import redis
 import structlog
 
-from config import get_config
+from config import config # Alterado de get_config para config
 from medical_ocr import MedicalOCRProcessor
 from utils.image_processor import ImageProcessor
 from utils.medical_parser import MedicalParameterParser
 
 # Configuração
-config = get_config()
+# config = get_config() # Esta linha não é mais necessária, pois importamos 'config' diretamente
 
 # Configurar logging estruturado
 structlog.configure(
