@@ -25,7 +25,10 @@ RUN pip install --upgrade pip
 
 # Copiar requirements e instalar dependências Python
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Adicionar um ARG para invalidar o cache desta camada se necessário
+ARG CACHE_BUSTER=1
+RUN echo "Forçando a não utilização de cache para pip install com CACHE_BUSTER=${CACHE_BUSTER}" && \
+    pip install --no-cache-dir --force-reinstall -r requirements.txt
 
 # Copiar código da aplicação
 COPY . .
