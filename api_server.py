@@ -16,7 +16,7 @@ from flask_cors import CORS
 import redis
 import structlog
 
-from config import config # Alterado de get_config para config
+import config as config_module # Alterado para importar o módulo inteiro
 from medical_ocr import MedicalOCRProcessor
 from utils.image_processor import ImageProcessor
 from utils.medical_parser import MedicalParameterParser
@@ -51,9 +51,9 @@ CORS(app)
 
 # Configurar Redis para cache
 try:
-    redis_client = redis.from_url(config.REDIS_URL, decode_responses=True)
+    redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True)
     redis_client.ping()
-    logger.info("Redis conectado com sucesso", redis_url=config.REDIS_URL)
+    logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL)
 except Exception as e:
     logger.error("Erro ao conectar Redis", error=str(e))
     redis_client = None
@@ -71,7 +71,7 @@ def require_api_key(f):
         if api_key:
             api_key = api_key.replace('Bearer ', '')
         
-        if not api_key or api_key != config.API_KEY:
+        if not api_key or api_key != config_module.config.API_KEY:
             return jsonify({
                 'error': 'API key inválida ou ausente',
                 'message': 'Forneça uma API key válida no header Authorization'
@@ -150,11 +150,11 @@ def api_info():
             '/ocr': 'Processamento OCR (POST)',
             '/parameters': 'Lista de parâmetros suportados (GET)'
         },
-        'supported_formats': config.ALLOWED_EXTENSIONS,
-        'max_file_size': config.MAX_FILE_SIZE,
-        'languages': [config.PADDLE_OCR_LANG],
+        'supported_formats': config_module.config.ALLOWED_EXTENSIONS,
+        'max_file_size': config_module.config.MAX_FILE_SIZE,
+        'languages': [config_module.config.PADDLE_OCR_LANG],
         'features': {
-            'gpu_enabled': config.ENABLE_GPU,
+            'gpu_enabled': config_module.config.ENABLE_GPU,
             'cache_enabled': redis_client is not None,
             'medical_parsing': True,
             'structured_output': True
@@ -165,9 +165,9 @@ def api_info():
 def list_parameters():
     """Lista parâmetros médicos suportados"""
     return jsonify({
-        'categories': config.MEDICAL_CATEGORIES,
-        'reference_ranges': config.REFERENCE_RANGES,
-        'total_parameters': sum(len(params) for params in config.MEDICAL_CATEGORIES.values())
+        'categories': config_module.config.MEDICAL_CATEGORIES,
+        'reference_ranges': config_module.config.REFERENCE_RANGES,
+        'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values())
     })
 
 @app.route('/ocr', methods=['POST'])
@@ -196,10 +196,10 @@ def process_ocr():
         
         # Validar extensão
         file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-        if file_ext not in config.ALLOWED_EXTENSIONS:
+        if file_ext not in config_module.config.ALLOWED_EXTENSIONS:
             return jsonify({
                 'error': 'Formato não suportado',
-                'message': f'Formatos aceitos: {", ".join(config.ALLOWED_EXTENSIONS)}',
+                'message': f'Formatos aceitos: {", ".join(config_module.config.ALLOWED_EXTENSIONS)}',
                 'received': file_ext
             }), 400
         
@@ -207,10 +207,10 @@ def process_ocr():
         file_data = file.read()
         
         # Validar tamanho
-        if len(file_data) > config.MAX_FILE_SIZE:
+        if len(file_data) > config_module.config.MAX_FILE_SIZE:
             return jsonify({
                 'error': 'Arquivo muito grande',
-                'message': f'Tamanho máximo: {config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB',
+                'message': f'Tamanho máximo: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB',
                 'received_size': f'{len(file_data) / 1024 / 1024:.1f}MB'
             }), 400
         
@@ -219,8 +219,8 @@ def process_ocr():
         
         # Parâmetros de processamento
         processing_params = {
-            'use_gpu': request.form.get('use_gpu', str(config.ENABLE_GPU)).lower() == 'true',
-            'confidence_threshold': float(request.form.get('confidence_threshold', config.CONFIDENCE_THRESHOLD)),
+            'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true',
+            'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)),
             'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
             'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
             'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
@@ -307,7 +307,7 @@ def process_ocr():
             },
             'ocr_details': {
                 'provider': 'paddleocr',
-                'language': config.PADDLE_OCR_LANG,
+                'language': config_module.config.PADDLE_OCR_LANG,
                 'gpu_used': processing_params['use_gpu'],
                 'confidence_threshold': processing_params['confidence_threshold']
             }
@@ -336,7 +336,7 @@ def process_ocr():
                 cache_data['cached'] = False  # Marcar como não-cache para diferenciação
                 redis_client.setex(
                     cache_key,
-                    config.CACHE_TTL,
+                    config_module.config.CACHE_TTL,
                     json.dumps(cache_data, ensure_ascii=False)
                 )
                 logger.info("Resultado salvo no cache", cache_key=cache_key)
@@ -448,7 +448,7 @@ def request_entity_too_large(error):
     """Handler para arquivos muito grandes"""
     return jsonify({
         'error': 'Arquivo muito grande',
-        'message': f'Tamanho máximo permitido: {config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB'
+        'message': f'Tamanho máximo permitido: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB'
     }), 413
 
 @app.errorhandler(404)
@@ -471,15 +471,15 @@ def internal_error(error):
 
 if __name__ == '__main__':
     logger.info("Iniciando servidor PaddleOCR API", 
-               host=config.HOST, 
-               port=config.PORT,
-               debug=config.DEBUG)
+               host=config_module.config.HOST, 
+               port=config_module.config.PORT,
+               debug=config_module.config.DEBUG)
     
     # Configurar Flask para produção
-    app.config['MAX_CONTENT_LENGTH'] = config.MAX_FILE_SIZE
+    app.config['MAX_CONTENT_LENGTH'] = config_module.config.MAX_FILE_SIZE
     
-    if config.DEBUG:
-        app.run(host=config.HOST, port=config.PORT, debug=True)
+    if config_module.config.DEBUG:
+        app.run(host=config_module.config.HOST, port=config_module.config.PORT, debug=True)
     else:
         # Usar Gunicorn em produção
         import gunicorn.app.base
@@ -498,10 +498,10 @@ if __name__ == '__main__':
                 return self.application
         
         options = {
-            'bind': f'{config.HOST}:{config.PORT}',
-            'workers': config.WORKERS,
+            'bind': f'{config_module.config.HOST}:{config_module.config.PORT}',
+            'workers': config_module.config.WORKERS,
             'worker_class': 'sync',
-            'timeout': config.MAX_PROCESSING_TIME,
+            'timeout': config_module.config.MAX_PROCESSING_TIME,
             'keepalive': 2,
             'max_requests': 1000,
             'max_requests_jitter': 100,
