@@ -30,6 +30,20 @@ ARG CACHE_BUSTER=1
 RUN echo "Forçando a não utilização de cache para pip install com CACHE_BUSTER=${CACHE_BUSTER}" && \
     pip install --no-cache-dir --force-reinstall -r requirements.txt
 
+# Comandos de diagnóstico APÓS pip install
+RUN echo "--- INÍCIO DIAGNÓSTICO PADDLEOCR ---" && \
+    echo "1. Verificando instalação do paddleocr com pip show:" && \
+    pip show paddleocr || echo "pip show paddleocr FALHOU" && \
+    echo "2. Verificando instalação do paddlepaddle com pip show:" && \
+    pip show paddlepaddle || echo "pip show paddlepaddle FALHOU" && \
+    echo "3. Tentando importar paddleocr em Python:" && \
+    python -c "import paddleocr; print('SUCESSO: PaddleOCR importado via python -c')" || echo "FALHA: Não foi possível importar paddleocr via python -c" && \
+    echo "4. Tentando importar paddleocr.PaddleOCR:" && \
+    python -c "from paddleocr import PaddleOCR; print('SUCESSO: PaddleOCR.PaddleOCR importado via python -c')" || echo "FALHA: Não foi possível importar PaddleOCR.PaddleOCR via python -c" && \
+    echo "5. Listando conteúdo de site-packages para paddleocr (se existir):" && \
+    (ls -l $(python -c 'import site; print(site.getsitepackages()[0])')/paddleocr* 2>/dev/null || echo "AVISO: Não foi possível listar arquivos do paddleocr em site-packages") && \
+    echo "--- FIM DIAGNÓSTICO PADDLEOCR ---"
+
 # Copiar código da aplicação
 COPY . .
 
