@@ -2,8 +2,8 @@
 Configurações do serviço PaddleOCR
 """
 import os
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, List, Dict # Adicionado List e Dict para type hinting
+from dataclasses import dataclass, field # Adicionado field
 
 @dataclass
 class Config:
@@ -29,7 +29,7 @@ class Config:
     
     # File Processing
     MAX_FILE_SIZE: int = int(os.getenv('MAX_FILE_SIZE', '10485760'))  # 10MB
-    ALLOWED_EXTENSIONS: list = ['jpg', 'jpeg', 'png', 'pdf', 'bmp', 'tiff']
+    ALLOWED_EXTENSIONS: List[str] = field(default_factory=lambda: ['jpg', 'jpeg', 'png', 'pdf', 'bmp', 'tiff'])
     TEMP_DIR: str = os.getenv('TEMP_DIR', './temp')
     UPLOAD_DIR: str = os.getenv('UPLOAD_DIR', './uploads')
     
@@ -45,7 +45,7 @@ class Config:
     MAX_PROCESSING_TIME: int = int(os.getenv('MAX_PROCESSING_TIME', '300'))  # 5 minutos
     
     # Medical Parameters Configuration
-    MEDICAL_CATEGORIES: dict = {
+    MEDICAL_CATEGORIES: Dict[str, List[str]] = field(default_factory=lambda: {
         'hematologia': [
             'hemoglobina', 'hematócrito', 'leucócitos', 'neutrófilos', 
             'linfócitos', 'monócitos', 'eosinófilos', 'basófilos', 
@@ -76,10 +76,10 @@ class Config:
             'vitamina d', 'vitamina b12', 'ácido fólico', 'vitamina a',
             'vitamina e', 'vitamina c'
         ]
-    }
+    })
     
     # Reference Ranges (valores de referência padrão)
-    REFERENCE_RANGES: dict = {
+    REFERENCE_RANGES: Dict[str, Dict[str, any]] = field(default_factory=lambda: {
         'hemoglobina': {'min': 12.0, 'max': 16.0, 'unit': 'g/dL'},
         'hematócrito': {'min': 36.0, 'max': 48.0, 'unit': '%'},
         'leucócitos': {'min': 4000, 'max': 11000, 'unit': '/mm³'},
@@ -94,10 +94,10 @@ class Config:
         'tsh': {'min': 0.4, 'max': 4.0, 'unit': 'mUI/L'},
         'alt': {'min': 0, 'max': 41, 'unit': 'U/L'},
         'ast': {'min': 0, 'max': 40, 'unit': 'U/L'},
-    }
+    })
     
     # Text Patterns for Parameter Extraction
-    PARAMETER_PATTERNS: dict = {
+    PARAMETER_PATTERNS: Dict[str, List[str]] = field(default_factory=lambda: {
         'hemoglobina': [
             r'(?:hemoglobina|hb)\s*:?\s*(\d+[,.]?\d*)\s*(?:g\/dl|mg\/dl)?',
             r'hb\s*(\d+[,.]?\d*)',
@@ -157,7 +157,7 @@ class Config:
             r'(?:tsh)\s*:?\s*(\d+[,.]?\d*)\s*(?:mui\/l|miu\/ml)?',
             r'tsh\s*(\d+[,.]?\d*)'
         ]
-    }
+    })
 
 # Instância global de configuração
 config = Config()
