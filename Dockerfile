@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libdc1394-22-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -35,4 +34,4 @@ COPY . .
 EXPOSE 5000
 
 # Comando para iniciar
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "api_server:app"]
