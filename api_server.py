@@ -64,28 +64,6 @@ CORS(app, resources={
     }
 })
 
-# Adicionar headers CORS manualmente para garantir compatibilidade
-@app.after_request
-def after_request(response):
-    origin = request.headers.get('Origin')
-    allowed_origins = [
-        'https://essencialab.app',
-        'https://www.essencialab.app',
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://localhost:5173',
-        'https://localhost:3000'
-    ]
-    
-    if origin in allowed_origins:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    else:
-        response.headers['Access-Control-Allow-Origin'] = 'https://essencialab.app'
-    
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
 
 # Configurar Redis para cache
 try:
@@ -409,6 +387,51 @@ def process_ocr():
             'processing_time_ms': int((time.time() - start_time) * 1000)
         }), 500
 
+def _process_single_file_for_batch(file, index, processing_params):
+    """Função auxiliar para processar um único arquivo dentro de um lote."""
+    file_start_time = time.time()
+    try:
+        # Validar arquivo individualmente
+        if file.filename == '':
+            return {'file_index': index, 'filename': 'N/A', 'success': False, 'error': 'Arquivo vazio'}
+
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if file_ext not in config_module.config.ALLOWED_EXTENSIONS:
+            return {'file_index': index, 'filename': file.filename, 'success': False, 'error': f'Formato não suportado: {file_ext}'}
+
+        file_data = file.read()
+        if len(file_data) > config_module.config.MAX_FILE_SIZE:
+            return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Arquivo muito grande'}
+
+        # Pré-processamento da imagem
+        processed_image = image_processor.preprocess_image(file_data) if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff'] else file_data
+
+        # Processamento OCR
+        ocr_result = ocr_processor.process_file(processed_image, file_extension=file_ext, **processing_params)
+
+        # Parsing Médico
+        structured_data = None
+        if processing_params['medical_parsing'] and ocr_result.get('text'):
+            structured_data = medical_parser.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
+
+        # Montar resultado individual
+        result = {
+            'file_index': index,
+            'filename': file.filename,
+            'success': True,
+            'text': ocr_result.get('text', ''),
+            'confidence': ocr_result.get('confidence', 0),
+            'processing_time_ms': int((time.time() - file_start_time) * 1000)
+        }
+        if structured_data:
+            result['structured_data'] = structured_data
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Erro ao processar arquivo {file.filename} no lote", error=str(e))
+        return {'file_index': index, 'filename': file.filename, 'success': False, 'error': str(e)}
+
 @app.route('/batch', methods=['POST'])
 @require_api_key
 def process_batch():
@@ -421,56 +444,32 @@ def process_batch():
     try:
         files = request.files.getlist('files')
         if not files:
-            return jsonify({
-                'error': 'Nenhum arquivo enviado',
-                'message': 'Envie arquivos no campo "files"'
-            }), 400
+            return jsonify({'error': 'Nenhum arquivo enviado', 'message': 'Envie arquivos no campo "files"'}), 400
         
         if len(files) > 10:  # Limite de 10 arquivos por lote
-            return jsonify({
-                'error': 'Muitos arquivos',
-                'message': 'Máximo 10 arquivos por lote',
-                'received': len(files)
-            }), 400
+            return jsonify({'error': 'Muitos arquivos', 'message': 'Máximo 10 arquivos por lote', 'received': len(files)}), 400
         
-        results = []
-        total_processing_time = 0
+        # Parâmetros de processamento para todo o lote
+        processing_params = {
+            'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true',
+            'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)),
+            'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
+            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
+            'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
+        }
+
+        results = [_process_single_file_for_batch(file, i, processing_params) for i, file in enumerate(files)]
         
-        for i, file in enumerate(files):
-            try:
-                # Simular processamento individual
-                # (reutilizar lógica do endpoint /ocr)
-                file_start = time.time()
-                
-                # Aqui você colocaria a lógica de processamento individual
-                # Por simplicidade, vou criar um resultado mock
-                file_result = {
-                    'file_index': i,
-                    'filename': file.filename,
-                    'success': True,
-                    'text': f'Texto extraído do arquivo {file.filename}',
-                    'confidence': 0.85,
-                    'processing_time_ms': int((time.time() - file_start) * 1000)
-                }
-                
-                results.append(file_result)
-                total_processing_time += file_result['processing_time_ms']
-                
-            except Exception as e:
-                results.append({
-                    'file_index': i,
-                    'filename': file.filename,
-                    'success': False,
-                    'error': str(e)
-                })
-        
+        successful_count = len([r for r in results if r.get('success')])
+        failed_count = len(results) - successful_count
+
         response = {
             'success': True,
             'request_id': request_id,
             'batch_info': {
                 'total_files': len(files),
-                'successful': len([r for r in results if r.get('success')]),
-                'failed': len([r for r in results if not r.get('success')])
+                'successful': successful_count,
+                'failed': failed_count
             },
             'results': results,
             'total_processing_time_ms': int((time.time() - start_time) * 1000)
@@ -479,12 +478,8 @@ def process_batch():
         return jsonify(response)
         
     except Exception as e:
-        logger.error("Erro no processamento em lote", error=str(e))
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'request_id': request_id
-        }), 500
+        logger.error("Erro no processamento em lote", error=str(e), trace=traceback.format_exc())
+        return jsonify({'success': False, 'error': 'Erro interno no processamento em lote', 'message': str(e), 'request_id': request_id}), 500
 
 @app.errorhandler(413)
 def request_entity_too_large(error):

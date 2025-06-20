@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     wget \
+    libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -23,8 +24,11 @@ COPY . .
 # Criar diretórios necessários
 RUN mkdir -p /tmp/uploads /tmp/temp /tmp/logs
 
-# Porta
+# Pré-baixar modelos do PaddleOCR para otimizar o boot
+RUN python -c "import os; os.environ['PADDLEOCR_HOME'] = '/tmp/.paddleocr'; from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='pt', use_gpu=False, show_log=True)"
+
+# Porta (será definida pela variável de ambiente PORT)
 EXPOSE 5000
 
-# Comando direto sem script
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "300", "--log-level", "info", "api_server:app"]
+# Comando de inicialização otimizado para Railway
+CMD ["python", "utils/start_railway.py"]

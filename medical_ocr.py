@@ -244,7 +244,7 @@ class MedicalOCRProcessor:
         start_time = time.time()
         
         if not self.ocr_engine:
-            return self._mock_ocr_result(image, **kwargs)
+            raise RuntimeError("Motor OCR não inicializado. Verifique os logs para erros de inicialização do PaddleOCR.")
         
         try:
             # Parâmetros de processamento
@@ -438,44 +438,6 @@ class MedicalOCRProcessor:
             return f"[Tabela detectada - {table_data.get('confidence', 0):.2f} confiança]"
         except:
             return "[Tabela detectada]"
-    
-    def _mock_ocr_result(self, image: np.ndarray, **kwargs) -> Dict[str, Any]:
-        """Resultado mock quando PaddleOCR não está disponível"""
-        logger.warning("Usando resultado mock - PaddleOCR não disponível")
-        
-        # Simular processamento baseado no tamanho da imagem
-        height, width = image.shape[:2]
-        mock_confidence = 0.75 + (min(width, height) / 2000) * 0.2  # Confiança baseada na resolução
-        
-        mock_text = """LABORATÓRIO EXEMPLO
-        
-HEMOGRAMA COMPLETO
-
-Paciente: João Silva
-Idade: 45 anos
-Data: 15/06/2024
-
-RESULTADOS:
-Hemoglobina: 14.2 g/dL (12.0-16.0)
-Hematócrito: 42.5% (36.0-48.0)
-Leucócitos: 7.200 /mm³ (4.000-11.000)
-Plaquetas: 280.000 /mm³ (150.000-450.000)
-
-Observações: Valores dentro da normalidade.
-
-Dr. Maria Santos
-CRM 12345"""
-        
-        return {
-            'text': mock_text,
-            'confidence': min(mock_confidence, 0.95),
-            'words': [
-                {'text': word, 'confidence': mock_confidence, 'bbox': [0, 0, 100, 20]}
-                for word in mock_text.split()
-            ],
-            'method': 'mock',
-            'mock': True
-        }
     
     def get_supported_formats(self) -> List[str]:
         """Retorna formatos suportados"""
