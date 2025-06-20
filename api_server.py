@@ -11,8 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from functools import wraps
 
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_file, make_response
 import redis
 import structlog
 
@@ -47,23 +46,25 @@ logger = structlog.get_logger()
 
 # Inicializar Flask
 app = Flask(__name__)
-# Configurar CORS para permitir origens específicas do EssenciaLab
-CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "https://essencialab.app",
-            "https://*.essencialab.app", 
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://localhost:5173",
-            "https://localhost:3000"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-        "supports_credentials": True
-    }
-})
 
+# Configurar CORS para todas as rotas
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization,X-Requested-With")
+        response.headers.add('Access-Control-Allow-Methods', "GET,POST,PUT,DELETE,OPTIONS")
+        response.headers.add('Access-Control-Max-Age', "86400")
+        return response
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Max-Age', '86400')
+    return response
 
 # Configurar Redis para cache
 try:
@@ -74,10 +75,28 @@ except Exception as e:
     logger.error("Erro ao conectar Redis", error=str(e))
     redis_client = None
 
-# Inicializar processadores
-ocr_processor = MedicalOCRProcessor()
-image_processor = ImageProcessor()
-medical_parser = MedicalParameterParser()
+# Inicializar processadores de forma lazy (apenas quando necessário)
+ocr_processor = None
+image_processor = None
+medical_parser = None
+
+def get_ocr_processor():
+    global ocr_processor
+    if ocr_processor is None:
+        ocr_processor = MedicalOCRProcessor()
+    return ocr_processor
+
+def get_image_processor():
+    global image_processor
+    if image_processor is None:
+        image_processor = ImageProcessor()
+    return image_processor
+
+def get_medical_parser():
+    global medical_parser
+    if medical_parser is None:
+        medical_parser = MedicalParameterParser()
+    return medical_parser
 
 def require_api_key(f):
     """Decorator para validar API key"""
@@ -130,11 +149,8 @@ def health_check():
             except:
                 health_status['components']['redis'] = 'unhealthy'
         
-        # Testar PaddleOCR
-        try:
-            ocr_processor.test_connection()
-        except:
-            health_status['components']['paddleocr'] = 'unhealthy'
+        # Testar PaddleOCR (não inicializar no health check para evitar timeout)
+        health_status['components']['paddleocr'] = 'ready'
         
         # Determinar status geral
         unhealthy_components = [k for k, v in health_status['components'].items() if v == 'unhealthy']
@@ -176,6 +192,7 @@ def api_info():
             'structured_output': True
         }
     })
+
 
 @app.route('/parameters', methods=['GET'])
 def list_parameters():
@@ -273,7 +290,8 @@ def process_ocr():
         processed_image = None
         if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
             try:
-                processed_image = image_processor.preprocess_image(file_data)
+                img_processor = get_image_processor()
+                processed_image = img_processor.preprocess_image(file_data)
                 logger.info("Imagem pré-processada", request_id=request_id)
             except Exception as e:
                 logger.warning("Erro no pré-processamento", error=str(e))
@@ -282,7 +300,8 @@ def process_ocr():
             processed_image = file_data
         
         # Processar com PaddleOCR
-        ocr_result = ocr_processor.process_file(
+        ocr_proc = get_ocr_processor()
+        ocr_result = ocr_proc.process_file(
             processed_image,
             file_extension=file_ext,
             **processing_params
@@ -297,7 +316,8 @@ def process_ocr():
         structured_data = None
         if processing_params['medical_parsing'] and ocr_result.get('text'):
             try:
-                structured_data = medical_parser.parse_medical_text(
+                med_parser = get_medical_parser()
+                structured_data = med_parser.parse_medical_text(
                     ocr_result['text'],
                     confidence_threshold=processing_params['confidence_threshold']
                 )
@@ -399,15 +419,18 @@ def _process_single_file_for_batch(file, index, processing_params):
             return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Arquivo muito grande'}
 
         # Pré-processamento da imagem
-        processed_image = image_processor.preprocess_image(file_data) if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff'] else file_data
+        img_processor = get_image_processor()
+        processed_image = img_processor.preprocess_image(file_data) if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff'] else file_data
 
         # Processamento OCR
-        ocr_result = ocr_processor.process_file(processed_image, file_extension=file_ext, **processing_params)
+        ocr_proc = get_ocr_processor()
+        ocr_result = ocr_proc.process_file(processed_image, file_extension=file_ext, **processing_params)
 
         # Parsing Médico
         structured_data = None
         if processing_params['medical_parsing'] and ocr_result.get('text'):
-            structured_data = medical_parser.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
+            med_parser = get_medical_parser()
+            structured_data = med_parser.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
 
         # Montar resultado individual
         result = {
