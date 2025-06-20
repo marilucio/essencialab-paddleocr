@@ -30,5 +30,5 @@ RUN python -c "import os; os.environ['PADDLEOCR_HOME'] = '/tmp/.paddleocr'; from
 # Porta (será definida pela variável de ambiente PORT)
 EXPOSE 5000
 
-# Comando de inicialização otimizado para Railway
-CMD ["python", "utils/start_railway.py"]
+# Comando de inicialização otimizado para Railway, executado como módulo
+CMD ["python", "-m", "utils.start_railway"]
