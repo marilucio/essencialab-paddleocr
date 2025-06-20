@@ -47,9 +47,45 @@ logger = structlog.get_logger()
 
 # Inicializar Flask
 app = Flask(__name__)
-# Configurar CORS para permitir todas as origens.
-# Em um ambiente de produção mais restrito, você pode listar os domínios específicos.
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Configurar CORS para permitir origens específicas do EssenciaLab
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://essencialab.app",
+            "https://*.essencialab.app", 
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://localhost:5173",
+            "https://localhost:3000"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+        "supports_credentials": True
+    }
+})
+
+# Adicionar headers CORS manualmente para garantir compatibilidade
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = [
+        'https://essencialab.app',
+        'https://www.essencialab.app',
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://localhost:5173',
+        'https://localhost:3000'
+    ]
+    
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        response.headers['Access-Control-Allow-Origin'] = 'https://essencialab.app'
+    
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
 
 # Configurar Redis para cache
 try:
@@ -171,6 +207,11 @@ def list_parameters():
         'reference_ranges': config_module.config.REFERENCE_RANGES, # Correto
         'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values()) # Correto
     })
+
+@app.route('/ocr', methods=['OPTIONS'])
+def ocr_options():
+    """Handle preflight OPTIONS request for CORS"""
+    return '', 200
 
 @app.route('/ocr', methods=['POST'])
 @require_api_key
