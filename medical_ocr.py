@@ -55,15 +55,18 @@ class MedicalOCRProcessor:
             # Inicializar PP-Structure para layout e tabelas
             try:
                 from paddleocr import PPStructure
+                # O modelo de layout do PP-Structure suporta apenas 'en' e 'ch'.
+                # Usamos 'en' para análise de layout, o OCR principal ainda usará 'pt'.
+                structure_lang = 'en'
                 self.structure_engine = PPStructure(
                     use_gpu=self.config.ENABLE_GPU,
                     show_log=False,
-                    lang=self.config.PADDLE_OCR_LANG,
+                    lang=structure_lang,
                     layout=True,
                     table=True,
                     ocr=True
                 )
-                logger.info("PP-Structure inicializado com sucesso")
+                logger.info("PP-Structure inicializado com sucesso", lang=structure_lang)
             except Exception as e:
                 logger.warning("PP-Structure não disponível", error=str(e))
                 self.structure_engine = None
