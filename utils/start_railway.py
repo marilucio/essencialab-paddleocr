@@ -77,8 +77,6 @@ def main():
         'max_requests': 1000,
         'max_requests_jitter': 100,
         'preload_app': False,  # Não fazer preload para evitar timeout
-        'access_logfile': '-',
-        'error_logfile': '-',
         'log_level': 'info',
         'worker_tmp_dir': '/dev/shm',  # Usar memória para worker heartbeat
         # Configurações especiais para Railway
