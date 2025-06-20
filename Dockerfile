@@ -34,5 +34,6 @@ RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, la
 # Porta (será definida pela variável de ambiente PORT)
 EXPOSE 5000
 
-# Comando de inicialização otimizado para Railway, executado como módulo
-CMD ["python", "-m", "utils.start_railway"]
+# Comando de inicialização direto com Gunicorn, usando a porta do ambiente
+# O 'exec' garante que o Gunicorn seja o processo principal (PID 1)
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 api_server:app
