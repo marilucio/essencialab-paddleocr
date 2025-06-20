@@ -47,7 +47,9 @@ logger = structlog.get_logger()
 
 # Inicializar Flask
 app = Flask(__name__)
-CORS(app)
+# Configurar CORS para permitir todas as origens.
+# Em um ambiente de produção mais restrito, você pode listar os domínios específicos.
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configurar Redis para cache
 try:
