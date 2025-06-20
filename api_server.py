@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from functools import wraps
 
 from flask import Flask, request, jsonify, send_file, make_response
+from flask_cors import CORS # Adicionado para Flask-CORS
 import redis
 import structlog
 
@@ -47,24 +48,33 @@ logger = structlog.get_logger()
 # Inicializar Flask
 app = Flask(__name__)
 
-# Configurar CORS para todas as rotas
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization,X-Requested-With")
-        response.headers.add('Access-Control-Allow-Methods', "GET,POST,PUT,DELETE,OPTIONS")
-        response.headers.add('Access-Control-Max-Age', "86400")
-        return response
+# Configurar Flask-CORS
+CORS(app, resources={
+    r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/health": {"origins": "*", "supports_credentials": True}, # Permitir de qualquer origem, credentials podem ser úteis se houver alguma autenticação futura ou headers customizados
+    r"/info": {"origins": "*", "supports_credentials": True} # Similar ao /health
+})
 
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Max-Age', '86400')
-    return response
+# # Configurar CORS para todas as rotas (REMOVIDO - substituído por Flask-CORS)
+# @app.before_request
+# def handle_preflight():
+#     if request.method == "OPTIONS":
+#         response = make_response()
+#         response.headers.add("Access-Control-Allow-Origin", "*")
+#         response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization,X-Requested-With")
+#         response.headers.add('Access-Control-Allow-Methods', "GET,POST,PUT,DELETE,OPTIONS")
+#         response.headers.add('Access-Control-Max-Age', "86400")
+#         return response
+
+# @app.after_request
+# def after_request(response):
+#     response.headers.add('Access-Control-Allow-Origin', '*')
+#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+#     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+#     response.headers.add('Access-Control-Max-Age', '86400')
+#     return response
 
 # Configurar Redis para cache
 try:
@@ -524,47 +534,3 @@ def internal_error(error):
         'error': 'Erro interno do servidor',
         'message': 'Tente novamente em alguns instantes'
     }), 500
-
-# O Gunicorn é iniciado pelo Dockerfile, então este bloco não é mais necessário.
-# if __name__ == '__main__':
-#     logger.info("Iniciando servidor PaddleOCR API", 
-#                host=config_module.config.HOST, 
-#                port=config_module.config.PORT,
-#                debug=config_module.config.DEBUG)
-    
-#     # Configurar Flask para produção
-#     app.config['MAX_CONTENT_LENGTH'] = config_module.config.MAX_FILE_SIZE
-    
-#     if config_module.config.DEBUG:
-#         app.run(host=config_module.config.HOST, port=config_module.config.PORT, debug=True)
-#     else:
-#         # Usar Gunicorn em produção
-#         import gunicorn.app.base
-        
-#         class StandaloneApplication(gunicorn.app.base.BaseApplication):
-#             def __init__(self, app, options=None):
-#                 self.options = options or {}
-#                 self.application = app
-#                 super().__init__()
-            
-#             def load_config(self):
-#                 for key, value in self.options.items():
-#                     self.cfg.set(key.lower(), value)
-            
-#             def load(self):
-#                 return self.application
-        
-#         options = {
-#             'bind': f'{config_module.config.HOST}:{config_module.config.PORT}',
-#             'workers': config_module.config.WORKERS,
-#             'worker_class': 'sync',
-#             'timeout': config_module.config.MAX_PROCESSING_TIME,
-#             'keepalive': 2,
-#             'max_requests': 1000,
-#             'max_requests_jitter': 100,
-#             'preload_app': True,
-#             'access_logfile': '-',
-#             'error_logfile': '-',
-#         }
-        
-#         StandaloneApplication(app, options).run()
