@@ -186,11 +186,6 @@ def list_parameters():
         'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values()) # Correto
     })
 
-@app.route('/ocr', methods=['OPTIONS'])
-def ocr_options():
-    """Handle preflight OPTIONS request for CORS"""
-    return '', 200
-
 @app.route('/ocr', methods=['POST'])
 @require_api_key
 def process_ocr():
