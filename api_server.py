@@ -12,19 +12,19 @@ from typing import Dict, Any, Optional
 from functools import wraps
 
 from flask import Flask, request, jsonify, make_response 
-from flask_cors import CORS # DEBUG: Reabilitado
-# import redis # DEBUG: Comentado 
-import structlog # DEBUG: Reabilitado
+from flask_cors import CORS 
+import redis # DEBUG: Reabilitado
+import structlog 
 
-# import config as config_module # DEBUG: Comentado 
+import config as config_module # DEBUG: Reabilitado
 # from medical_ocr import MedicalOCRProcessor # DEBUG: Comentado 
 # from utils.image_processor import ImageProcessor # DEBUG: Comentado 
 # from utils.medical_parser import MedicalParameterParser # DEBUG: Comentado 
 
 # Configuração
-# config = get_config() 
+# config = get_config() # Esta linha não é mais necessária, pois importamos 'config' diretamente
 
-# Configurar logging estruturado (DEBUG: Reabilitado)
+# Configurar logging estruturado 
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -77,16 +77,16 @@ CORS(app, resources={
 #     response.headers.add('Access-Control-Max-Age', '86400')
 #     return response
 
-# Configurar Redis para cache (DEBUG: Comentado temporariamente)
-# try:
-#     redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True) 
-#     redis_client.ping()
-#     logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL) 
-# except Exception as e:
-#     logger.error("Erro ao conectar Redis", error=str(e))
-redis_client = None # DEBUG: Forçar Redis como None
+# Configurar Redis para cache (DEBUG: Reabilitado)
+try:
+    redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True) 
+    redis_client.ping()
+    logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL) 
+except Exception as e:
+    logger.error("Erro ao conectar Redis", error=str(e), exc_info=True)
+    redis_client = None
 
-# Inicializar processadores de forma lazy (apenas quando necessário) (DEBUG: Comentado)
+# Inicializar processadores de forma lazy (apenas quando necessário) (DEBUG: OCR ainda comentado)
 # ocr_processor = None
 # image_processor = None
 # medical_parser = None
@@ -116,17 +116,17 @@ def require_api_key(f): # DEBUG: Simplificado para não depender de config_modul
     """Decorator para validar API key (DEBUG: Chave mockada)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # api_key = request.headers.get('Authorization')
-        # if api_key:
-        #     api_key = api_key.replace('Bearer ', '')
+        api_key = request.headers.get('Authorization')
+        if api_key:
+            api_key = api_key.replace('Bearer ', '') # Remove "Bearer " prefix
         
-        # # if not api_key or api_key != config_module.config.API_KEY: # Correto
-        # if not api_key or api_key != "DEBUG_API_KEY": # DEBUG: Usar chave mockada ou desabilitar
-        #     return jsonify({
-        #         'error': 'API key inválida ou ausente (DEBUG MODE)',
-        #         'message': 'Forneça uma API key válida no header Authorization'
-        #     }), 401
-        logger.info("DEBUG: require_api_key chamado, validação de API Key pulada.") # Usando logger do structlog
+        if not api_key or api_key != config_module.config.API_KEY: # DEBUG: Lógica real reabilitada
+            logger.warn("Tentativa de acesso com API key inválida ou ausente", received_key=api_key)
+            return jsonify({
+                'error': 'API key inválida ou ausente',
+                'message': 'Forneça uma API key válida no header Authorization'
+            }), 401
+        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -148,21 +148,22 @@ def health_check():
         health_status = {
             'status': 'healthy',
             'timestamp': datetime.utcnow().isoformat(),
-            'version': '1.0.0 (ULTRA_SIMPLE_DEBUG MODE)',
+            'version': '1.0.0 (DEBUG: OCR Desabilitado)', # Atualizando modo
             'components': {
-                'paddleocr': 'disabled_for_ultra_simple_debug', # DEBUG
-                'redis': 'disabled_for_debug', # DEBUG
-                'image_processor': 'disabled_for_debug', # DEBUG
-                'medical_parser': 'disabled_for_ultra_simple_debug' # DEBUG
+                'paddleocr': 'disabled_for_debug', 
+                'redis': 'healthy' if redis_client else 'unhealthy', # Lógica real do Redis
+                'image_processor': 'disabled_for_debug', 
+                'medical_parser': 'disabled_for_debug' 
             }
         }
-        logger.info("Health check acessado") # Usando logger do structlog
-        # Testar Redis se disponível (DEBUG: Comentado)
-        # if redis_client:
-        #     try:
-        #         redis_client.ping()
-        #     except:
-        #         health_status['components']['redis'] = 'unhealthy'
+        logger.info("Health check acessado") 
+        # Testar Redis se disponível (DEBUG: Reabilitado)
+        if redis_client:
+            try:
+                redis_client.ping()
+            except Exception: # Captura exceção específica se necessário
+                logger.error("Health check: Falha no ping do Redis", exc_info=True)
+                health_status['components']['redis'] = 'unhealthy'
         
         # Testar PaddleOCR (não inicializar no health check para evitar timeout)
         # health_status['components']['paddleocr'] = 'ready' # DEBUG: Comentado
@@ -187,41 +188,55 @@ def health_check():
 
 @app.route('/info', methods=['GET']) # DEBUG: Ultra simplificado
 def api_info():
-    """Informações da API (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger.info("Rota /info acessada") # Usando logger do structlog
+    """Informações da API (DEBUG: OCR Desabilitado)"""
+    logger.info("Rota /info acessada") 
     return jsonify({
-        'name': 'PaddleOCR Medical API (ULTRA_SIMPLE_DEBUG MODE)',
+        'name': 'PaddleOCR Medical API (DEBUG: OCR Desabilitado)',
         'version': '1.0.0',
+        'description': 'API para processamento OCR de exames médicos',
         'endpoints': {
             '/health': 'Health check',
             '/info': 'Informações da API',
-            '/test': 'Rota de teste simples',
-            '/ocr': 'Processamento OCR (POST) - MOCK RESPONSE'
+            '/ocr': 'Processamento OCR (POST) - MOCK RESPONSE',
+            '/parameters': 'Lista de parâmetros suportados (GET)',
+            '/batch': 'Processamento em lote (POST) - MOCK RESPONSE',
+            '/test': 'Rota de teste simples'
+        },
+        'supported_formats': config_module.config.ALLOWED_EXTENSIONS, # Lógica real
+        'max_file_size': config_module.config.MAX_FILE_SIZE, # Lógica real
+        'languages': [config_module.config.PADDLE_OCR_LANG], # Lógica real
+        'features': {
+            'gpu_enabled': config_module.config.ENABLE_GPU, # Lógica real
+            'cache_enabled': redis_client is not None, # Lógica real
+            'medical_parsing': False, # DEBUG: OCR ainda desabilitado
+            'structured_output': False # DEBUG: OCR ainda desabilitado
         }
     })
 
-@app.route('/test', methods=['GET']) # DEBUG: Rota de teste simples
+@app.route('/test', methods=['GET']) 
 def test_route():
-    logger.info("Rota /test acessada") # Usando logger do structlog
-    return jsonify({'message': 'Servidor está no ar! (ULTRA_SIMPLE_DEBUG MODE)', 'timestamp': datetime.utcnow().isoformat()})
+    logger.info("Rota /test acessada") 
+    return jsonify({'message': 'Servidor está no ar! (DEBUG: OCR Desabilitado)', 'timestamp': datetime.utcnow().isoformat()})
 
-@app.route('/parameters', methods=['GET']) # DEBUG: Ultra simplificado
-@require_api_key # DEBUG: Reaplicando o decorator simplificado
+@app.route('/parameters', methods=['GET']) 
+@require_api_key 
 def list_parameters():
-    """Lista parâmetros médicos suportados (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger.info("Rota /parameters acessada") # Usando logger do structlog
+    """Lista parâmetros médicos suportados (Lógica real)"""
+    logger.info("Rota /parameters acessada") 
     return jsonify({
-        'message': 'Parâmetros desabilitados em ULTRA_SIMPLE_DEBUG MODE.'
+        'categories': config_module.config.MEDICAL_CATEGORIES, # Lógica real
+        'reference_ranges': config_module.config.REFERENCE_RANGES, # Lógica real
+        'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values()) # Lógica real
     })
 
 @app.route('/ocr', methods=['POST']) 
-@require_api_key # DEBUG: Reaplicando o decorator simplificado
+@require_api_key 
 def process_ocr():
-    """Endpoint principal para processamento OCR (ULTRA_SIMPLE_DEBUG MODE)"""
+    """Endpoint principal para processamento OCR (DEBUG: OCR Desabilitado, MOCK RESPONSE)"""
     start_time = time.time()
     request_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
     
-    logger.info("Rota /ocr acessada (ULTRA_SIMPLE_DEBUG MODE)", request_id=request_id) # Usando logger do structlog
+    logger.info("Rota /ocr acessada (DEBUG: OCR Desabilitado)", request_id=request_id) 
     
     # Validar request básica para simular o fluxo
     if 'file' not in request.files:
@@ -237,10 +252,10 @@ def process_ocr():
     mock_response = {
         'success': True,
         'request_id': request_id,
-        'text': 'Este é um texto mock do OCR em ULTRA_SIMPLE_DEBUG MODE.',
-        'message': 'Servidor em ULTRA_SIMPLE_DEBUG MODE. OCR real não foi executado.'
+        'text': 'Este é um texto mock do OCR (DEBUG: OCR Desabilitado).',
+        'message': 'Servidor em modo de debug. OCR real não foi executado.'
     }
-    logger.info("/ocr: Retornando resposta mock", request_id=request_id) # Usando logger do structlog
+    logger.info("/ocr: Retornando resposta mock (OCR Desabilitado)", request_id=request_id) 
     return jsonify(mock_response)
     # FIM DA SEÇÃO DE DEBUG
     # O código abaixo está comentado para manter apenas a seção de debug ativa.
@@ -445,25 +460,29 @@ def process_ocr():
 
 
 @app.route('/batch', methods=['POST']) 
-@require_api_key # DEBUG: Reaplicando o decorator simplificado
+@require_api_key 
 def process_batch():
-    """Processamento em lote de múltiplos arquivos (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger.warning("Rota /batch acessada (ULTRA_SIMPLE_DEBUG MODE) - Desabilitado.") # Usando logger do structlog
+    """Processamento em lote de múltiplos arquivos (DEBUG: OCR Desabilitado, MOCK RESPONSE)"""
+    logger.warning("Rota /batch acessada (DEBUG: OCR Desabilitado) - Retornando mock.") 
+    # Simular um processamento bem-sucedido para o lote (ou um erro controlado)
+    # Por enquanto, vamos apenas retornar uma mensagem de que está mockado.
     return jsonify({
-        'success': False,
-        'error': 'Processamento em lote desabilitado em ULTRA_SIMPLE_DEBUG MODE.'
-    }), 503
+        'success': True, # Ou False, dependendo do que queremos testar
+        'message': 'Processamento em lote mockado (DEBUG: OCR Desabilitado).',
+        'results': [] 
+    }), 200 # Ou 503 se quisermos simular desabilitado
 
 
-@app.errorhandler(413) # DEBUG: Ultra simplificado
+@app.errorhandler(413) 
 def request_entity_too_large(error):
     """Handler para arquivos muito grandes"""
-    logger.warning("Erro 413: Request entity too large") # Usando logger do structlog
+    logger.warning("Erro 413: Request entity too large") 
     return jsonify({
-        'error': 'Arquivo muito grande (ULTRA_SIMPLE_DEBUG MODE)'
+        'error': 'Arquivo muito grande', # Mensagem original
+        'message': f'Tamanho máximo permitido: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB' # Lógica real
     }), 413
 
-@app.errorhandler(404) # DEBUG: Ultra simplificado
+@app.errorhandler(404) 
 def not_found(error):
     """Handler para rotas não encontradas"""
     return jsonify({
@@ -475,7 +494,7 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handler para erros internos"""
-    logger.error("Erro 500: Erro interno do servidor", error_details=str(error)) # Usando logger do structlog
+    logger.error("Erro 500: Erro interno do servidor", error_details=str(error), exc_info=True) 
     return jsonify({
-        'error': 'Erro interno do servidor (ULTRA_SIMPLE_DEBUG MODE)'
+        'error': 'Erro interno do servidor' # Mensagem original
     }), 500
