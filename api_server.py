@@ -221,196 +221,244 @@ def process_ocr():
     request_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
     
     logger.info("Iniciando processamento OCR", request_id=request_id)
-    
+
+    # INÍCIO DA SEÇÃO DE DEBUG: Retornar mock sem usar PaddleOCR
+    logger.warning("MODO DE DEBUG ATIVADO PARA /ocr - PaddleOCR desabilitado temporariamente")
     try:
-        # Validar request
+        # Validar request básica para simular o fluxo
         if 'file' not in request.files:
-            return jsonify({
-                'error': 'Nenhum arquivo enviado',
-                'message': 'Envie um arquivo no campo "file"'
-            }), 400
+            return jsonify({'error': 'Nenhum arquivo enviado (DEBUG MODE)', 'message': 'Envie um arquivo no campo "file"'}), 400
         
         file = request.files['file']
         if file.filename == '':
-            return jsonify({
-                'error': 'Arquivo vazio',
-                'message': 'Selecione um arquivo válido'
-            }), 400
-        
-        # Validar extensão
-        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-        if file_ext not in config_module.config.ALLOWED_EXTENSIONS: # Correto
-            return jsonify({
-                'error': 'Formato não suportado',
-                'message': f'Formatos aceitos: {", ".join(config_module.config.ALLOWED_EXTENSIONS)}', # Correto
-                'received': file_ext
-            }), 400
-        
-        # Ler dados do arquivo
-        file_data = file.read()
-        
-        # Validar tamanho
-        if len(file_data) > config_module.config.MAX_FILE_SIZE: # Correto
-            return jsonify({
-                'error': 'Arquivo muito grande',
-                'message': f'Tamanho máximo: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB', # Correto
-                'received_size': f'{len(file_data) / 1024 / 1024:.1f}MB'
-            }), 400
-        
-        # Calcular hash do arquivo
-        file_hash = get_file_hash(file_data)
-        
-        # Parâmetros de processamento
-        processing_params = {
-            'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true', # Correto
-            'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)), # Correto
-            'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
-            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
-            'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
-        }
-        
-        # Verificar cache
-        cache_key = get_cache_key(file_hash, processing_params)
-        cached_result = None
-        
-        if redis_client:
-            try:
-                cached_result = redis_client.get(cache_key)
-                if cached_result:
-                    import json
-                    cached_result = json.loads(cached_result)
-                    logger.info("Resultado encontrado no cache", request_id=request_id, cache_key=cache_key)
-                    
-                    # Adicionar informações de cache
-                    cached_result['cached'] = True
-                    cached_result['cache_key'] = cache_key
-                    cached_result['processing_time_ms'] = time.time() - start_time
-                    
-                    return jsonify(cached_result)
-            except Exception as e:
-                logger.warning("Erro ao acessar cache", error=str(e))
-        
-        logger.info("Processando arquivo", 
-                   request_id=request_id,
-                   filename=file.filename,
-                   size_mb=f"{len(file_data) / 1024 / 1024:.2f}",
-                   file_hash=file_hash)
-        
-        # Pré-processar imagem se necessário
-        processed_image = None
-        if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
-            try:
-                img_processor = get_image_processor()
-                processed_image = img_processor.preprocess_image(file_data)
-                logger.info("Imagem pré-processada", request_id=request_id)
-            except Exception as e:
-                logger.warning("Erro no pré-processamento", error=str(e))
-                processed_image = file_data
-        else:
-            processed_image = file_data
-        
-        # Processar com PaddleOCR
-        ocr_proc = get_ocr_processor()
-        ocr_result = ocr_proc.process_file(
-            processed_image,
-            file_extension=file_ext,
-            **processing_params
-        )
-        
-        logger.info("OCR concluído", 
-                   request_id=request_id,
-                   confidence=ocr_result.get('confidence', 0),
-                   text_length=len(ocr_result.get('text', '')))
-        
-        # Parsing médico se habilitado
-        structured_data = None
-        if processing_params['medical_parsing'] and ocr_result.get('text'):
-            try:
-                med_parser = get_medical_parser()
-                structured_data = med_parser.parse_medical_text(
-                    ocr_result['text'],
-                    confidence_threshold=processing_params['confidence_threshold']
-                )
-                logger.info("Parsing médico concluído", 
-                           request_id=request_id,
-                           parameters_found=len(structured_data.get('parameters', [])))
-            except Exception as e:
-                logger.error("Erro no parsing médico", error=str(e))
-                structured_data = {'error': str(e)}
-        
-        # Montar resposta
-        response = {
+            return jsonify({'error': 'Arquivo vazio (DEBUG MODE)', 'message': 'Selecione um arquivo válido'}), 400
+
+        # Simular um processamento bem-sucedido
+        mock_response = {
             'success': True,
             'request_id': request_id,
-            'text': ocr_result.get('text', ''),
-            'confidence': ocr_result.get('confidence', 0),
+            'text': 'Este é um texto mock do OCR em modo de debug.',
+            'confidence': 0.99,
             'processing_time_ms': int((time.time() - start_time) * 1000),
             'file_info': {
                 'filename': file.filename,
-                'size_bytes': len(file_data),
-                'format': file_ext,
-                'hash': file_hash
+                'size_bytes': 0, # Simulado
+                'format': 'pdf', # Simulado
+                'hash': 'mock_hash'
             },
             'ocr_details': {
-                'provider': 'paddleocr',
-                'language': config_module.config.PADDLE_OCR_LANG, # Correto
-                'gpu_used': processing_params['use_gpu'],
-                'confidence_threshold': processing_params['confidence_threshold']
-            }
+                'provider': 'paddleocr_mock',
+                'language': 'pt',
+                'gpu_used': False,
+                'confidence_threshold': 0.5
+            },
+            'message': 'Servidor em modo de debug para OCR. PaddleOCR não foi executado.'
         }
-        
-        # Adicionar dados estruturados se disponível
-        if structured_data:
-            response['structured_data'] = structured_data
-            response['parameters_count'] = len(structured_data.get('parameters', []))
-            response['exam_type'] = structured_data.get('exam_type', 'unknown')
-        
-        # Adicionar tabelas se extraídas
-        if ocr_result.get('tables'):
-            response['tables'] = ocr_result['tables']
-            response['tables_count'] = len(ocr_result['tables'])
-        
-        # Adicionar layout se extraído
-        if ocr_result.get('layout'):
-            response['layout'] = ocr_result['layout']
-        
-        # Salvar no cache se disponível
-        if redis_client and response['confidence'] > 0.5:
-            try:
-                import json
-                cache_data = response.copy()
-                cache_data['cached'] = False  # Marcar como não-cache para diferenciação
-                redis_client.setex(
-                    cache_key,
-                    config_module.config.CACHE_TTL, # Correto
-                    json.dumps(cache_data, ensure_ascii=False)
-                )
-                logger.info("Resultado salvo no cache", cache_key=cache_key)
-            except Exception as e:
-                logger.warning("Erro ao salvar no cache", error=str(e))
-        
-        logger.info("Processamento concluído com sucesso", 
-                   request_id=request_id,
-                   total_time_ms=response['processing_time_ms'])
-        
-        return jsonify(response)
-        
+        logger.info("Processamento OCR mock concluído com sucesso", request_id=request_id)
+        return jsonify(mock_response)
+
     except Exception as e:
         error_msg = str(e)
         error_trace = traceback.format_exc()
-        
-        logger.error("Erro no processamento OCR", 
-                    request_id=request_id,
-                    error=error_msg,
-                    trace=error_trace)
-        
+        logger.error("Erro no processamento OCR (DEBUG MODE)", request_id=request_id, error=error_msg, trace=error_trace)
         return jsonify({
             'success': False,
-            'error': 'Erro interno do servidor',
+            'error': 'Erro interno do servidor (DEBUG MODE)',
             'message': error_msg,
             'request_id': request_id,
             'processing_time_ms': int((time.time() - start_time) * 1000)
         }), 500
+    # FIM DA SEÇÃO DE DEBUG
+
+    # try:
+    #     # Validar request
+    #     if 'file' not in request.files:
+    #         return jsonify({
+    #             'error': 'Nenhum arquivo enviado',
+    #             'message': 'Envie um arquivo no campo "file"'
+    #         }), 400
+        
+    #     file = request.files['file']
+    #     if file.filename == '':
+    #         return jsonify({
+    #             'error': 'Arquivo vazio',
+    #             'message': 'Selecione um arquivo válido'
+    #         }), 400
+        
+    #     # Validar extensão
+    #     file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    #     if file_ext not in config_module.config.ALLOWED_EXTENSIONS: # Correto
+    #         return jsonify({
+    #             'error': 'Formato não suportado',
+    #             'message': f'Formatos aceitos: {", ".join(config_module.config.ALLOWED_EXTENSIONS)}', # Correto
+    #             'received': file_ext
+    #         }), 400
+        
+    #     # Ler dados do arquivo
+    #     file_data = file.read()
+        
+    #     # Validar tamanho
+    #     if len(file_data) > config_module.config.MAX_FILE_SIZE: # Correto
+    #         return jsonify({
+    #             'error': 'Arquivo muito grande',
+    #             'message': f'Tamanho máximo: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB', # Correto
+    #             'received_size': f'{len(file_data) / 1024 / 1024:.1f}MB'
+    #         }), 400
+        
+    #     # Calcular hash do arquivo
+    #     file_hash = get_file_hash(file_data)
+        
+    #     # Parâmetros de processamento
+    #     processing_params = {
+    #         'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true', # Correto
+    #         'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)), # Correto
+    #         'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
+    #         'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
+    #         'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
+    #     }
+        
+    #     # Verificar cache
+    #     cache_key = get_cache_key(file_hash, processing_params)
+    #     cached_result = None
+        
+    #     if redis_client:
+    #         try:
+    #             cached_result = redis_client.get(cache_key)
+    #             if cached_result:
+    #                 import json
+    #                 cached_result = json.loads(cached_result)
+    #                 logger.info("Resultado encontrado no cache", request_id=request_id, cache_key=cache_key)
+                    
+    #                 # Adicionar informações de cache
+    #                 cached_result['cached'] = True
+    #                 cached_result['cache_key'] = cache_key
+    #                 cached_result['processing_time_ms'] = time.time() - start_time
+                    
+    #                 return jsonify(cached_result)
+    #         except Exception as e:
+    #             logger.warning("Erro ao acessar cache", error=str(e))
+        
+    #     logger.info("Processando arquivo", 
+    #                request_id=request_id,
+    #                filename=file.filename,
+    #                size_mb=f"{len(file_data) / 1024 / 1024:.2f}",
+    #                file_hash=file_hash)
+        
+    #     # Pré-processar imagem se necessário
+    #     processed_image = None
+    #     if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
+    #         try:
+    #             img_processor = get_image_processor()
+    #             processed_image = img_processor.preprocess_image(file_data)
+    #             logger.info("Imagem pré-processada", request_id=request_id)
+    #         except Exception as e:
+    #             logger.warning("Erro no pré-processamento", error=str(e))
+    #             processed_image = file_data
+    #     else:
+    #         processed_image = file_data
+        
+    #     # Processar com PaddleOCR
+    #     ocr_proc = get_ocr_processor()
+    #     ocr_result = ocr_proc.process_file(
+    #         processed_image,
+    #         file_extension=file_ext,
+    #         **processing_params
+    #     )
+        
+    #     logger.info("OCR concluído", 
+    #                request_id=request_id,
+    #                confidence=ocr_result.get('confidence', 0),
+    #                text_length=len(ocr_result.get('text', '')))
+        
+    #     # Parsing médico se habilitado
+    #     structured_data = None
+    #     if processing_params['medical_parsing'] and ocr_result.get('text'):
+    #         try:
+    #             med_parser = get_medical_parser()
+    #             structured_data = med_parser.parse_medical_text(
+    #                 ocr_result['text'],
+    #                 confidence_threshold=processing_params['confidence_threshold']
+    #             )
+    #             logger.info("Parsing médico concluído", 
+    #                        request_id=request_id,
+    #                        parameters_found=len(structured_data.get('parameters', [])))
+    #         except Exception as e:
+    #             logger.error("Erro no parsing médico", error=str(e))
+    #             structured_data = {'error': str(e)}
+        
+    #     # Montar resposta
+    #     response = {
+    #         'success': True,
+    #         'request_id': request_id,
+    #         'text': ocr_result.get('text', ''),
+    #         'confidence': ocr_result.get('confidence', 0),
+    #         'processing_time_ms': int((time.time() - start_time) * 1000),
+    #         'file_info': {
+    #             'filename': file.filename,
+    #             'size_bytes': len(file_data),
+    #             'format': file_ext,
+    #             'hash': file_hash
+    #         },
+    #         'ocr_details': {
+    #             'provider': 'paddleocr',
+    #             'language': config_module.config.PADDLE_OCR_LANG, # Correto
+    #             'gpu_used': processing_params['use_gpu'],
+    #             'confidence_threshold': processing_params['confidence_threshold']
+    #         }
+    #     }
+        
+    #     # Adicionar dados estruturados se disponível
+    #     if structured_data:
+    #         response['structured_data'] = structured_data
+    #         response['parameters_count'] = len(structured_data.get('parameters', []))
+    #         response['exam_type'] = structured_data.get('exam_type', 'unknown')
+        
+    #     # Adicionar tabelas se extraídas
+    #     if ocr_result.get('tables'):
+    #         response['tables'] = ocr_result['tables']
+    #         response['tables_count'] = len(ocr_result['tables'])
+        
+    #     # Adicionar layout se extraído
+    #     if ocr_result.get('layout'):
+    #         response['layout'] = ocr_result['layout']
+        
+    #     # Salvar no cache se disponível
+    #     if redis_client and response['confidence'] > 0.5:
+    #         try:
+    #             import json
+    #             cache_data = response.copy()
+    #             cache_data['cached'] = False  # Marcar como não-cache para diferenciação
+    #             redis_client.setex(
+    #                 cache_key,
+    #                 config_module.config.CACHE_TTL, # Correto
+    #                 json.dumps(cache_data, ensure_ascii=False)
+    #             )
+    #             logger.info("Resultado salvo no cache", cache_key=cache_key)
+    #         except Exception as e:
+    #             logger.warning("Erro ao salvar no cache", error=str(e))
+        
+    #     logger.info("Processamento concluído com sucesso", 
+    #                request_id=request_id,
+    #                total_time_ms=response['processing_time_ms'])
+        
+    #     return jsonify(response)
+        
+    # except Exception as e:
+    #     error_msg = str(e)
+    #     error_trace = traceback.format_exc()
+        
+    #     logger.error("Erro no processamento OCR", 
+    #                 request_id=request_id,
+    #                 error=error_msg,
+    #                 trace=error_trace)
+        
+    #     return jsonify({
+    #         'success': False,
+    #         'error': 'Erro interno do servidor',
+    #         'message': error_msg,
+    #         'request_id': request_id,
+    #         'processing_time_ms': int((time.time() - start_time) * 1000)
+    #     }), 500
 
 def _process_single_file_for_batch(file, index, processing_params):
     """Função auxiliar para processar um único arquivo dentro de um lote."""
