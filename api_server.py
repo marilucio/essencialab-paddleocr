@@ -14,7 +14,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, make_response 
 from flask_cors import CORS # DEBUG: Reabilitado
 # import redis # DEBUG: Comentado 
-# import structlog # DEBUG: Removido
+import structlog # DEBUG: Reabilitado
 
 # import config as config_module # DEBUG: Comentado 
 # from medical_ocr import MedicalOCRProcessor # DEBUG: Comentado 
@@ -24,14 +24,25 @@ from flask_cors import CORS # DEBUG: Reabilitado
 # Configuração
 # config = get_config() 
 
-# Configurar logging estruturado (DEBUG: Removido)
-# logger = structlog.get_logger() # DEBUG: Removido
-def logger_info(message, **kwargs): # DEBUG: Mock logger
-    print(f"INFO: {message}", kwargs if kwargs else "")
-def logger_warning(message, **kwargs): # DEBUG: Mock logger
-    print(f"WARN: {message}", kwargs if kwargs else "")
-def logger_error(message, **kwargs): # DEBUG: Mock logger
-    print(f"ERROR: {message}", kwargs if kwargs else "")
+# Configurar logging estruturado (DEBUG: Reabilitado)
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer()
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger() # DEBUG: Reabilitado
 
 
 # Inicializar Flask
@@ -115,7 +126,7 @@ def require_api_key(f): # DEBUG: Simplificado para não depender de config_modul
         #         'error': 'API key inválida ou ausente (DEBUG MODE)',
         #         'message': 'Forneça uma API key válida no header Authorization'
         #     }), 401
-        logger_info("DEBUG: require_api_key chamado, validação de API Key pulada.")
+        logger.info("DEBUG: require_api_key chamado, validação de API Key pulada.") # Usando logger do structlog
         return f(*args, **kwargs)
     return decorated_function
 
@@ -145,7 +156,7 @@ def health_check():
                 'medical_parser': 'disabled_for_ultra_simple_debug' # DEBUG
             }
         }
-        logger_info("Health check acessado") # DEBUG: Adicionado print
+        logger.info("Health check acessado") # Usando logger do structlog
         # Testar Redis se disponível (DEBUG: Comentado)
         # if redis_client:
         #     try:
@@ -177,7 +188,7 @@ def health_check():
 @app.route('/info', methods=['GET']) # DEBUG: Ultra simplificado
 def api_info():
     """Informações da API (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger_info("Rota /info acessada")
+    logger.info("Rota /info acessada") # Usando logger do structlog
     return jsonify({
         'name': 'PaddleOCR Medical API (ULTRA_SIMPLE_DEBUG MODE)',
         'version': '1.0.0',
@@ -191,34 +202,35 @@ def api_info():
 
 @app.route('/test', methods=['GET']) # DEBUG: Rota de teste simples
 def test_route():
-    logger_info("Rota /test acessada")
+    logger.info("Rota /test acessada") # Usando logger do structlog
     return jsonify({'message': 'Servidor está no ar! (ULTRA_SIMPLE_DEBUG MODE)', 'timestamp': datetime.utcnow().isoformat()})
 
 @app.route('/parameters', methods=['GET']) # DEBUG: Ultra simplificado
+@require_api_key # DEBUG: Reaplicando o decorator simplificado
 def list_parameters():
     """Lista parâmetros médicos suportados (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger_info("Rota /parameters acessada")
+    logger.info("Rota /parameters acessada") # Usando logger do structlog
     return jsonify({
         'message': 'Parâmetros desabilitados em ULTRA_SIMPLE_DEBUG MODE.'
     })
 
-@app.route('/ocr', methods=['POST']) # DEBUG: Ultra simplificado, sem require_api_key por enquanto
-# @require_api_key # DEBUG: Removido temporariamente
+@app.route('/ocr', methods=['POST']) 
+@require_api_key # DEBUG: Reaplicando o decorator simplificado
 def process_ocr():
     """Endpoint principal para processamento OCR (ULTRA_SIMPLE_DEBUG MODE)"""
     start_time = time.time()
     request_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
     
-    logger_info("Rota /ocr acessada (ULTRA_SIMPLE_DEBUG MODE)", request_id=request_id)
+    logger.info("Rota /ocr acessada (ULTRA_SIMPLE_DEBUG MODE)", request_id=request_id) # Usando logger do structlog
     
     # Validar request básica para simular o fluxo
     if 'file' not in request.files:
-        logger_warning("/ocr: Nenhum arquivo enviado")
+        logger.warning("/ocr: Nenhum arquivo enviado") # Usando logger do structlog
         return jsonify({'error': 'Nenhum arquivo enviado (ULTRA_SIMPLE_DEBUG MODE)'}), 400
     
     file = request.files['file']
     if file.filename == '':
-        logger_warning("/ocr: Arquivo vazio")
+        logger.warning("/ocr: Arquivo vazio") # Usando logger do structlog
         return jsonify({'error': 'Arquivo vazio (ULTRA_SIMPLE_DEBUG MODE)'}), 400
 
     # Simular um processamento bem-sucedido
@@ -228,7 +240,7 @@ def process_ocr():
         'text': 'Este é um texto mock do OCR em ULTRA_SIMPLE_DEBUG MODE.',
         'message': 'Servidor em ULTRA_SIMPLE_DEBUG MODE. OCR real não foi executado.'
     }
-    logger_info("/ocr: Retornando resposta mock", request_id=request_id)
+    logger.info("/ocr: Retornando resposta mock", request_id=request_id) # Usando logger do structlog
     return jsonify(mock_response)
     # FIM DA SEÇÃO DE DEBUG
     # O código abaixo está comentado para manter apenas a seção de debug ativa.
@@ -432,11 +444,11 @@ def process_ocr():
 #     return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Batch processing disabled in DEBUG MODE'}
 
 
-@app.route('/batch', methods=['POST']) # DEBUG: Ultra simplificado, sem require_api_key
-# @require_api_key # DEBUG: Removido temporariamente
+@app.route('/batch', methods=['POST']) 
+@require_api_key # DEBUG: Reaplicando o decorator simplificado
 def process_batch():
     """Processamento em lote de múltiplos arquivos (ULTRA_SIMPLE_DEBUG MODE)"""
-    logger_warning("Rota /batch acessada (ULTRA_SIMPLE_DEBUG MODE) - Desabilitado.")
+    logger.warning("Rota /batch acessada (ULTRA_SIMPLE_DEBUG MODE) - Desabilitado.") # Usando logger do structlog
     return jsonify({
         'success': False,
         'error': 'Processamento em lote desabilitado em ULTRA_SIMPLE_DEBUG MODE.'
@@ -446,7 +458,7 @@ def process_batch():
 @app.errorhandler(413) # DEBUG: Ultra simplificado
 def request_entity_too_large(error):
     """Handler para arquivos muito grandes"""
-    logger_warning("Erro 413: Request entity too large")
+    logger.warning("Erro 413: Request entity too large") # Usando logger do structlog
     return jsonify({
         'error': 'Arquivo muito grande (ULTRA_SIMPLE_DEBUG MODE)'
     }), 413
@@ -463,7 +475,7 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handler para erros internos"""
-    logger_error("Erro 500: Erro interno do servidor", error_details=str(error))
+    logger.error("Erro 500: Erro interno do servidor", error_details=str(error)) # Usando logger do structlog
     return jsonify({
         'error': 'Erro interno do servidor (ULTRA_SIMPLE_DEBUG MODE)'
     }), 500
