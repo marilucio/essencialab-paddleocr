@@ -13,13 +13,13 @@ from functools import wraps
 
 from flask import Flask, request, jsonify, send_file, make_response
 from flask_cors import CORS # Adicionado para Flask-CORS
-import redis
+# import redis # DEBUG: Comentado temporariamente
 import structlog
 
-import config as config_module
-from medical_ocr import MedicalOCRProcessor
-from utils.image_processor import ImageProcessor
-from utils.medical_parser import MedicalParameterParser
+# import config as config_module # DEBUG: Comentado temporariamente
+# from medical_ocr import MedicalOCRProcessor # DEBUG: Comentado temporariamente
+# from utils.image_processor import ImageProcessor # DEBUG: Comentado temporariamente
+# from utils.medical_parser import MedicalParameterParser # DEBUG: Comentado temporariamente
 
 # Configuração
 # config = get_config() # Esta linha não é mais necessária, pois importamos 'config' diretamente
@@ -53,8 +53,10 @@ CORS(app, resources={
     r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
     r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
     r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/health": {"origins": "*", "supports_credentials": True}, # Permitir de qualquer origem, credentials podem ser úteis se houver alguma autenticação futura ou headers customizados
-    r"/info": {"origins": "*", "supports_credentials": True} # Similar ao /health
+    r"/health": {"origins": "*", "supports_credentials": True}, 
+    r"/info": {"origins": "*", "supports_credentials": True}, 
+    # DEBUG: Adicionando rota de teste simples
+    r"/test": {"origins": "*", "supports_credentials": True}
 })
 
 # # Configurar CORS para todas as rotas (REMOVIDO - substituído por Flask-CORS)
@@ -76,52 +78,56 @@ CORS(app, resources={
 #     response.headers.add('Access-Control-Max-Age', '86400')
 #     return response
 
-# Configurar Redis para cache
-try:
-    redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True) # Correto: config_module.config.REDIS_URL
-    redis_client.ping()
-    logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL) # Correto
-except Exception as e:
-    logger.error("Erro ao conectar Redis", error=str(e))
-    redis_client = None
+# Configurar Redis para cache (DEBUG: Comentado temporariamente)
+# try:
+#     redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True) 
+#     redis_client.ping()
+#     logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL) 
+# except Exception as e:
+#     logger.error("Erro ao conectar Redis", error=str(e))
+redis_client = None # DEBUG: Forçar Redis como None
 
-# Inicializar processadores de forma lazy (apenas quando necessário)
-ocr_processor = None
-image_processor = None
-medical_parser = None
+# Inicializar processadores de forma lazy (apenas quando necessário) (DEBUG: Comentado)
+# ocr_processor = None
+# image_processor = None
+# medical_parser = None
 
-def get_ocr_processor():
-    global ocr_processor
-    if ocr_processor is None:
-        ocr_processor = MedicalOCRProcessor()
-    return ocr_processor
+# def get_ocr_processor():
+#     global ocr_processor
+#     if ocr_processor is None:
+#         # ocr_processor = MedicalOCRProcessor() # DEBUG: Comentado
+#         pass # DEBUG
+#     return ocr_processor
 
-def get_image_processor():
-    global image_processor
-    if image_processor is None:
-        image_processor = ImageProcessor()
-    return image_processor
+# def get_image_processor():
+#     global image_processor
+#     if image_processor is None:
+#         # image_processor = ImageProcessor() # DEBUG: Comentado
+#         pass # DEBUG
+#     return image_processor
 
-def get_medical_parser():
-    global medical_parser
-    if medical_parser is None:
-        medical_parser = MedicalParameterParser()
-    return medical_parser
+# def get_medical_parser():
+#     global medical_parser
+#     if medical_parser is None:
+#         # medical_parser = MedicalParameterParser() # DEBUG: Comentado
+#         pass # DEBUG
+#     return medical_parser
 
-def require_api_key(f):
-    """Decorator para validar API key"""
+def require_api_key(f): # DEBUG: Simplificado para não depender de config_module
+    """Decorator para validar API key (DEBUG: Chave mockada)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('Authorization')
-        if api_key:
-            api_key = api_key.replace('Bearer ', '')
+        # api_key = request.headers.get('Authorization')
+        # if api_key:
+        #     api_key = api_key.replace('Bearer ', '')
         
-        if not api_key or api_key != config_module.config.API_KEY: # Correto
-            return jsonify({
-                'error': 'API key inválida ou ausente',
-                'message': 'Forneça uma API key válida no header Authorization'
-            }), 401
-        
+        # # if not api_key or api_key != config_module.config.API_KEY: # Correto
+        # if not api_key or api_key != "DEBUG_API_KEY": # DEBUG: Usar chave mockada ou desabilitar
+        #     return jsonify({
+        #         'error': 'API key inválida ou ausente (DEBUG MODE)',
+        #         'message': 'Forneça uma API key válida no header Authorization'
+        #     }), 401
+        logger.info("DEBUG: require_api_key chamado, validação de API Key pulada.")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -143,27 +149,28 @@ def health_check():
         health_status = {
             'status': 'healthy',
             'timestamp': datetime.utcnow().isoformat(),
-            'version': '1.0.0',
+            'version': '1.0.0 (DEBUG MODE)',
             'components': {
-                'paddleocr': 'healthy',
-                'redis': 'healthy' if redis_client else 'unhealthy',
-                'image_processor': 'healthy',
-                'medical_parser': 'healthy'
+                'paddleocr': 'disabled_for_debug', # DEBUG
+                'redis': 'disabled_for_debug', # DEBUG
+                'image_processor': 'disabled_for_debug', # DEBUG
+                'medical_parser': 'disabled_for_debug' # DEBUG
             }
         }
         
-        # Testar Redis se disponível
-        if redis_client:
-            try:
-                redis_client.ping()
-            except:
-                health_status['components']['redis'] = 'unhealthy'
+        # Testar Redis se disponível (DEBUG: Comentado)
+        # if redis_client:
+        #     try:
+        #         redis_client.ping()
+        #     except:
+        #         health_status['components']['redis'] = 'unhealthy'
         
         # Testar PaddleOCR (não inicializar no health check para evitar timeout)
-        health_status['components']['paddleocr'] = 'ready'
+        # health_status['components']['paddleocr'] = 'ready' # DEBUG: Comentado
         
         # Determinar status geral
-        unhealthy_components = [k for k, v in health_status['components'].items() if v == 'unhealthy']
+        unhealthy_components = [] # DEBUG: Forçar a não ter componentes não saudáveis
+        # unhealthy_components = [k for k, v in health_status['components'].items() if v == 'unhealthy']
         if unhealthy_components:
             health_status['status'] = 'degraded'
             health_status['issues'] = unhealthy_components
@@ -189,28 +196,35 @@ def api_info():
         'endpoints': {
             '/health': 'Health check',
             '/info': 'Informações da API',
-            '/ocr': 'Processamento OCR (POST)',
-            '/parameters': 'Lista de parâmetros suportados (GET)'
+            '/ocr': 'Processamento OCR (POST) - DEBUG MODE',
+            '/parameters': 'Lista de parâmetros suportados (GET) - DEBUG MODE',
+            '/test': 'Rota de teste simples - DEBUG MODE'
         },
-        'supported_formats': config_module.config.ALLOWED_EXTENSIONS, # Correto
-        'max_file_size': config_module.config.MAX_FILE_SIZE, # Correto
-        'languages': [config_module.config.PADDLE_OCR_LANG], # Correto
+        'supported_formats': ['.pdf', '.png', '.jpg'], # DEBUG: Mock
+        'max_file_size': 10 * 1024 * 1024, # DEBUG: Mock
+        'languages': ['pt_debug'], # DEBUG: Mock
         'features': {
-            'gpu_enabled': config_module.config.ENABLE_GPU, # Correto
-            'cache_enabled': redis_client is not None,
-            'medical_parsing': True,
-            'structured_output': True
+            'gpu_enabled': False, # DEBUG: Mock
+            'cache_enabled': False, # DEBUG: Mock
+            'medical_parsing': False, # DEBUG: Mock
+            'structured_output': False # DEBUG: Mock
         }
     })
 
+@app.route('/test', methods=['GET']) # DEBUG: Rota de teste simples
+def test_route():
+    logger.info("Rota /test acessada")
+    return jsonify({'message': 'Servidor está no ar! (DEBUG MODE)', 'timestamp': datetime.utcnow().isoformat()})
 
-@app.route('/parameters', methods=['GET'])
+@app.route('/parameters', methods=['GET']) # DEBUG: Simplificado
 def list_parameters():
-    """Lista parâmetros médicos suportados"""
+    """Lista parâmetros médicos suportados (DEBUG MODE)"""
+    logger.info("Rota /parameters acessada (DEBUG MODE)")
     return jsonify({
-        'categories': config_module.config.MEDICAL_CATEGORIES, # Correto
-        'reference_ranges': config_module.config.REFERENCE_RANGES, # Correto
-        'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values()) # Correto
+        'message': 'Parâmetros desabilitados em modo de debug.',
+        'categories': {},
+        'reference_ranges': {},
+        'total_parameters': 0
     })
 
 @app.route('/ocr', methods=['POST'])
@@ -269,10 +283,12 @@ def process_ocr():
             'processing_time_ms': int((time.time() - start_time) * 1000)
         }), 500
     # FIM DA SEÇÃO DE DEBUG
+    # O código abaixo está comentado para manter apenas a seção de debug ativa.
+    # Se o debug funcionar, o problema está no código comentado.
 
-    # try:
-    #     # Validar request
-    #     if 'file' not in request.files:
+    # # try:
+    # #     # Validar request
+    # #     if 'file' not in request.files:
     #         return jsonify({
     #             'error': 'Nenhum arquivo enviado',
     #             'message': 'Envie um arquivo no campo "file"'
@@ -460,109 +476,33 @@ def process_ocr():
     #         'processing_time_ms': int((time.time() - start_time) * 1000)
     #     }), 500
 
-def _process_single_file_for_batch(file, index, processing_params):
-    """Função auxiliar para processar um único arquivo dentro de um lote."""
-    file_start_time = time.time()
-    try:
-        # Validar arquivo individualmente
-        if file.filename == '':
-            return {'file_index': index, 'filename': 'N/A', 'success': False, 'error': 'Arquivo vazio'}
 
-        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-        if file_ext not in config_module.config.ALLOWED_EXTENSIONS:
-            return {'file_index': index, 'filename': file.filename, 'success': False, 'error': f'Formato não suportado: {file_ext}'}
+# DEBUG: Comentando rotas e funções que dependem de módulos complexos
+# def _process_single_file_for_batch(file, index, processing_params):
+#     """Função auxiliar para processar um único arquivo dentro de um lote."""
+#     # ... (código original comentado) ...
+#     return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Batch processing disabled in DEBUG MODE'}
 
-        file_data = file.read()
-        if len(file_data) > config_module.config.MAX_FILE_SIZE:
-            return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Arquivo muito grande'}
 
-        # Pré-processamento da imagem
-        img_processor = get_image_processor()
-        processed_image = img_processor.preprocess_image(file_data) if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff'] else file_data
-
-        # Processamento OCR
-        ocr_proc = get_ocr_processor()
-        ocr_result = ocr_proc.process_file(processed_image, file_extension=file_ext, **processing_params)
-
-        # Parsing Médico
-        structured_data = None
-        if processing_params['medical_parsing'] and ocr_result.get('text'):
-            med_parser = get_medical_parser()
-            structured_data = med_parser.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
-
-        # Montar resultado individual
-        result = {
-            'file_index': index,
-            'filename': file.filename,
-            'success': True,
-            'text': ocr_result.get('text', ''),
-            'confidence': ocr_result.get('confidence', 0),
-            'processing_time_ms': int((time.time() - file_start_time) * 1000)
-        }
-        if structured_data:
-            result['structured_data'] = structured_data
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Erro ao processar arquivo {file.filename} no lote", error=str(e))
-        return {'file_index': index, 'filename': file.filename, 'success': False, 'error': str(e)}
-
-@app.route('/batch', methods=['POST'])
+@app.route('/batch', methods=['POST']) # DEBUG: Simplificado
 @require_api_key
 def process_batch():
-    """Processamento em lote de múltiplos arquivos"""
-    start_time = time.time()
-    request_id = hashlib.md5(f"batch_{time.time()}".encode()).hexdigest()[:8]
-    
-    logger.info("Iniciando processamento em lote", request_id=request_id)
-    
-    try:
-        files = request.files.getlist('files')
-        if not files:
-            return jsonify({'error': 'Nenhum arquivo enviado', 'message': 'Envie arquivos no campo "files"'}), 400
-        
-        if len(files) > 10:  # Limite de 10 arquivos por lote
-            return jsonify({'error': 'Muitos arquivos', 'message': 'Máximo 10 arquivos por lote', 'received': len(files)}), 400
-        
-        # Parâmetros de processamento para todo o lote
-        processing_params = {
-            'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true',
-            'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)),
-            'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
-            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
-            'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
-        }
+    """Processamento em lote de múltiplos arquivos (DEBUG MODE)"""
+    logger.warning("Rota /batch acessada (DEBUG MODE) - Processamento em lote desabilitado.")
+    return jsonify({
+        'success': False,
+        'error': 'Processamento em lote desabilitado em modo de debug.',
+        'message': 'Esta funcionalidade está temporariamente desativada para diagnóstico.'
+    }), 503
 
-        results = [_process_single_file_for_batch(file, i, processing_params) for i, file in enumerate(files)]
-        
-        successful_count = len([r for r in results if r.get('success')])
-        failed_count = len(results) - successful_count
-
-        response = {
-            'success': True,
-            'request_id': request_id,
-            'batch_info': {
-                'total_files': len(files),
-                'successful': successful_count,
-                'failed': failed_count
-            },
-            'results': results,
-            'total_processing_time_ms': int((time.time() - start_time) * 1000)
-        }
-        
-        return jsonify(response)
-        
-    except Exception as e:
-        logger.error("Erro no processamento em lote", error=str(e), trace=traceback.format_exc())
-        return jsonify({'success': False, 'error': 'Erro interno no processamento em lote', 'message': str(e), 'request_id': request_id}), 500
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
     """Handler para arquivos muito grandes"""
     return jsonify({
-        'error': 'Arquivo muito grande',
-        'message': f'Tamanho máximo permitido: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB' # Correto
+        'error': 'Arquivo muito grande (DEBUG MODE)',
+        # 'message': f'Tamanho máximo permitido: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB'
+        'message': 'Tamanho máximo permitido: 10MB (valor de debug)'
     }), 413
 
 @app.errorhandler(404)
