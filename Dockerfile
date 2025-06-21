@@ -36,4 +36,4 @@ EXPOSE 5000
 
 # Comando de inicialização direto com Gunicorn, usando a porta do ambiente
 # O 'exec' garante que o Gunicorn seja o processo principal (PID 1)
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 api_server:app
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --log-level debug --access-logfile - --error-logfile - api_server:app
