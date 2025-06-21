@@ -11,7 +11,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from functools import wraps
 
-from flask import Flask, request, jsonify, make_response # Removido send_file, CORS, structlog
+from flask import Flask, request, jsonify, make_response 
+from flask_cors import CORS # DEBUG: Reabilitado
 # import redis # DEBUG: Comentado 
 # import structlog # DEBUG: Removido
 
@@ -36,15 +37,15 @@ def logger_error(message, **kwargs): # DEBUG: Mock logger
 # Inicializar Flask
 app = Flask(__name__)
 
-# Configurar Flask-CORS (DEBUG: Removido temporariamente para testar estabilidade base)
-# CORS(app, resources={
-#     r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
-#     r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
-#     r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
-#     r"/health": {"origins": "*", "supports_credentials": True}, 
-#     r"/info": {"origins": "*", "supports_credentials": True}, 
-#     r"/test": {"origins": "*", "supports_credentials": True}
-# })
+# Configurar Flask-CORS (DEBUG: Reabilitado com configuração original)
+CORS(app, resources={
+    r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/health": {"origins": "*", "supports_credentials": True}, 
+    r"/info": {"origins": "*", "supports_credentials": True}, 
+    r"/test": {"origins": "*", "supports_credentials": True} # Adicionando /test à política CORS
+})
 
 # # Configurar CORS para todas as rotas (REMOVIDO - substituído por Flask-CORS)
 # @app.before_request
