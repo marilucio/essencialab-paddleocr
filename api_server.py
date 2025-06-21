@@ -11,53 +11,40 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from functools import wraps
 
-from flask import Flask, request, jsonify, send_file, make_response
-from flask_cors import CORS # Adicionado para Flask-CORS
-# import redis # DEBUG: Comentado temporariamente
-import structlog
+from flask import Flask, request, jsonify, make_response # Removido send_file, CORS, structlog
+# import redis # DEBUG: Comentado 
+# import structlog # DEBUG: Removido
 
-# import config as config_module # DEBUG: Comentado temporariamente
-# from medical_ocr import MedicalOCRProcessor # DEBUG: Comentado temporariamente
-# from utils.image_processor import ImageProcessor # DEBUG: Comentado temporariamente
-# from utils.medical_parser import MedicalParameterParser # DEBUG: Comentado temporariamente
+# import config as config_module # DEBUG: Comentado 
+# from medical_ocr import MedicalOCRProcessor # DEBUG: Comentado 
+# from utils.image_processor import ImageProcessor # DEBUG: Comentado 
+# from utils.medical_parser import MedicalParameterParser # DEBUG: Comentado 
 
 # Configuração
-# config = get_config() # Esta linha não é mais necessária, pois importamos 'config' diretamente
+# config = get_config() 
 
-# Configurar logging estruturado
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+# Configurar logging estruturado (DEBUG: Removido)
+# logger = structlog.get_logger() # DEBUG: Removido
+def logger_info(message, **kwargs): # DEBUG: Mock logger
+    print(f"INFO: {message}", kwargs if kwargs else "")
+def logger_warning(message, **kwargs): # DEBUG: Mock logger
+    print(f"WARN: {message}", kwargs if kwargs else "")
+def logger_error(message, **kwargs): # DEBUG: Mock logger
+    print(f"ERROR: {message}", kwargs if kwargs else "")
 
-logger = structlog.get_logger()
 
 # Inicializar Flask
 app = Flask(__name__)
 
-# Configurar Flask-CORS
-CORS(app, resources={
-    r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/health": {"origins": "*", "supports_credentials": True}, 
-    r"/info": {"origins": "*", "supports_credentials": True}, 
-    # DEBUG: Adicionando rota de teste simples
-    r"/test": {"origins": "*", "supports_credentials": True}
-})
+# Configurar Flask-CORS (DEBUG: Removido temporariamente para testar estabilidade base)
+# CORS(app, resources={
+#     r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
+#     r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
+#     r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
+#     r"/health": {"origins": "*", "supports_credentials": True}, 
+#     r"/info": {"origins": "*", "supports_credentials": True}, 
+#     r"/test": {"origins": "*", "supports_credentials": True}
+# })
 
 # # Configurar CORS para todas as rotas (REMOVIDO - substituído por Flask-CORS)
 # @app.before_request
@@ -127,7 +114,7 @@ def require_api_key(f): # DEBUG: Simplificado para não depender de config_modul
         #         'error': 'API key inválida ou ausente (DEBUG MODE)',
         #         'message': 'Forneça uma API key válida no header Authorization'
         #     }), 401
-        logger.info("DEBUG: require_api_key chamado, validação de API Key pulada.")
+        logger_info("DEBUG: require_api_key chamado, validação de API Key pulada.")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -149,15 +136,15 @@ def health_check():
         health_status = {
             'status': 'healthy',
             'timestamp': datetime.utcnow().isoformat(),
-            'version': '1.0.0 (DEBUG MODE)',
+            'version': '1.0.0 (ULTRA_SIMPLE_DEBUG MODE)',
             'components': {
-                'paddleocr': 'disabled_for_debug', # DEBUG
+                'paddleocr': 'disabled_for_ultra_simple_debug', # DEBUG
                 'redis': 'disabled_for_debug', # DEBUG
                 'image_processor': 'disabled_for_debug', # DEBUG
-                'medical_parser': 'disabled_for_debug' # DEBUG
+                'medical_parser': 'disabled_for_ultra_simple_debug' # DEBUG
             }
         }
-        
+        logger_info("Health check acessado") # DEBUG: Adicionado print
         # Testar Redis se disponível (DEBUG: Comentado)
         # if redis_client:
         #     try:
@@ -186,102 +173,62 @@ def health_check():
             'timestamp': datetime.utcnow().isoformat()
         }), 503
 
-@app.route('/info', methods=['GET'])
+@app.route('/info', methods=['GET']) # DEBUG: Ultra simplificado
 def api_info():
-    """Informações da API"""
+    """Informações da API (ULTRA_SIMPLE_DEBUG MODE)"""
+    logger_info("Rota /info acessada")
     return jsonify({
-        'name': 'PaddleOCR Medical API',
+        'name': 'PaddleOCR Medical API (ULTRA_SIMPLE_DEBUG MODE)',
         'version': '1.0.0',
-        'description': 'API para processamento OCR de exames médicos',
         'endpoints': {
             '/health': 'Health check',
             '/info': 'Informações da API',
-            '/ocr': 'Processamento OCR (POST) - DEBUG MODE',
-            '/parameters': 'Lista de parâmetros suportados (GET) - DEBUG MODE',
-            '/test': 'Rota de teste simples - DEBUG MODE'
-        },
-        'supported_formats': ['.pdf', '.png', '.jpg'], # DEBUG: Mock
-        'max_file_size': 10 * 1024 * 1024, # DEBUG: Mock
-        'languages': ['pt_debug'], # DEBUG: Mock
-        'features': {
-            'gpu_enabled': False, # DEBUG: Mock
-            'cache_enabled': False, # DEBUG: Mock
-            'medical_parsing': False, # DEBUG: Mock
-            'structured_output': False # DEBUG: Mock
+            '/test': 'Rota de teste simples',
+            '/ocr': 'Processamento OCR (POST) - MOCK RESPONSE'
         }
     })
 
 @app.route('/test', methods=['GET']) # DEBUG: Rota de teste simples
 def test_route():
-    logger.info("Rota /test acessada")
-    return jsonify({'message': 'Servidor está no ar! (DEBUG MODE)', 'timestamp': datetime.utcnow().isoformat()})
+    logger_info("Rota /test acessada")
+    return jsonify({'message': 'Servidor está no ar! (ULTRA_SIMPLE_DEBUG MODE)', 'timestamp': datetime.utcnow().isoformat()})
 
-@app.route('/parameters', methods=['GET']) # DEBUG: Simplificado
+@app.route('/parameters', methods=['GET']) # DEBUG: Ultra simplificado
 def list_parameters():
-    """Lista parâmetros médicos suportados (DEBUG MODE)"""
-    logger.info("Rota /parameters acessada (DEBUG MODE)")
+    """Lista parâmetros médicos suportados (ULTRA_SIMPLE_DEBUG MODE)"""
+    logger_info("Rota /parameters acessada")
     return jsonify({
-        'message': 'Parâmetros desabilitados em modo de debug.',
-        'categories': {},
-        'reference_ranges': {},
-        'total_parameters': 0
+        'message': 'Parâmetros desabilitados em ULTRA_SIMPLE_DEBUG MODE.'
     })
 
-@app.route('/ocr', methods=['POST'])
-@require_api_key
+@app.route('/ocr', methods=['POST']) # DEBUG: Ultra simplificado, sem require_api_key por enquanto
+# @require_api_key # DEBUG: Removido temporariamente
 def process_ocr():
-    """Endpoint principal para processamento OCR"""
+    """Endpoint principal para processamento OCR (ULTRA_SIMPLE_DEBUG MODE)"""
     start_time = time.time()
     request_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
     
-    logger.info("Iniciando processamento OCR", request_id=request_id)
+    logger_info("Rota /ocr acessada (ULTRA_SIMPLE_DEBUG MODE)", request_id=request_id)
+    
+    # Validar request básica para simular o fluxo
+    if 'file' not in request.files:
+        logger_warning("/ocr: Nenhum arquivo enviado")
+        return jsonify({'error': 'Nenhum arquivo enviado (ULTRA_SIMPLE_DEBUG MODE)'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        logger_warning("/ocr: Arquivo vazio")
+        return jsonify({'error': 'Arquivo vazio (ULTRA_SIMPLE_DEBUG MODE)'}), 400
 
-    # INÍCIO DA SEÇÃO DE DEBUG: Retornar mock sem usar PaddleOCR
-    logger.warning("MODO DE DEBUG ATIVADO PARA /ocr - PaddleOCR desabilitado temporariamente")
-    try:
-        # Validar request básica para simular o fluxo
-        if 'file' not in request.files:
-            return jsonify({'error': 'Nenhum arquivo enviado (DEBUG MODE)', 'message': 'Envie um arquivo no campo "file"'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'Arquivo vazio (DEBUG MODE)', 'message': 'Selecione um arquivo válido'}), 400
-
-        # Simular um processamento bem-sucedido
-        mock_response = {
-            'success': True,
-            'request_id': request_id,
-            'text': 'Este é um texto mock do OCR em modo de debug.',
-            'confidence': 0.99,
-            'processing_time_ms': int((time.time() - start_time) * 1000),
-            'file_info': {
-                'filename': file.filename,
-                'size_bytes': 0, # Simulado
-                'format': 'pdf', # Simulado
-                'hash': 'mock_hash'
-            },
-            'ocr_details': {
-                'provider': 'paddleocr_mock',
-                'language': 'pt',
-                'gpu_used': False,
-                'confidence_threshold': 0.5
-            },
-            'message': 'Servidor em modo de debug para OCR. PaddleOCR não foi executado.'
-        }
-        logger.info("Processamento OCR mock concluído com sucesso", request_id=request_id)
-        return jsonify(mock_response)
-
-    except Exception as e:
-        error_msg = str(e)
-        error_trace = traceback.format_exc()
-        logger.error("Erro no processamento OCR (DEBUG MODE)", request_id=request_id, error=error_msg, trace=error_trace)
-        return jsonify({
-            'success': False,
-            'error': 'Erro interno do servidor (DEBUG MODE)',
-            'message': error_msg,
-            'request_id': request_id,
-            'processing_time_ms': int((time.time() - start_time) * 1000)
-        }), 500
+    # Simular um processamento bem-sucedido
+    mock_response = {
+        'success': True,
+        'request_id': request_id,
+        'text': 'Este é um texto mock do OCR em ULTRA_SIMPLE_DEBUG MODE.',
+        'message': 'Servidor em ULTRA_SIMPLE_DEBUG MODE. OCR real não foi executado.'
+    }
+    logger_info("/ocr: Retornando resposta mock", request_id=request_id)
+    return jsonify(mock_response)
     # FIM DA SEÇÃO DE DEBUG
     # O código abaixo está comentado para manter apenas a seção de debug ativa.
     # Se o debug funcionar, o problema está no código comentado.
@@ -484,28 +431,26 @@ def process_ocr():
 #     return {'file_index': index, 'filename': file.filename, 'success': False, 'error': 'Batch processing disabled in DEBUG MODE'}
 
 
-@app.route('/batch', methods=['POST']) # DEBUG: Simplificado
-@require_api_key
+@app.route('/batch', methods=['POST']) # DEBUG: Ultra simplificado, sem require_api_key
+# @require_api_key # DEBUG: Removido temporariamente
 def process_batch():
-    """Processamento em lote de múltiplos arquivos (DEBUG MODE)"""
-    logger.warning("Rota /batch acessada (DEBUG MODE) - Processamento em lote desabilitado.")
+    """Processamento em lote de múltiplos arquivos (ULTRA_SIMPLE_DEBUG MODE)"""
+    logger_warning("Rota /batch acessada (ULTRA_SIMPLE_DEBUG MODE) - Desabilitado.")
     return jsonify({
         'success': False,
-        'error': 'Processamento em lote desabilitado em modo de debug.',
-        'message': 'Esta funcionalidade está temporariamente desativada para diagnóstico.'
+        'error': 'Processamento em lote desabilitado em ULTRA_SIMPLE_DEBUG MODE.'
     }), 503
 
 
-@app.errorhandler(413)
+@app.errorhandler(413) # DEBUG: Ultra simplificado
 def request_entity_too_large(error):
     """Handler para arquivos muito grandes"""
+    logger_warning("Erro 413: Request entity too large")
     return jsonify({
-        'error': 'Arquivo muito grande (DEBUG MODE)',
-        # 'message': f'Tamanho máximo permitido: {config_module.config.MAX_FILE_SIZE / 1024 / 1024:.1f}MB'
-        'message': 'Tamanho máximo permitido: 10MB (valor de debug)'
+        'error': 'Arquivo muito grande (ULTRA_SIMPLE_DEBUG MODE)'
     }), 413
 
-@app.errorhandler(404)
+@app.errorhandler(404) # DEBUG: Ultra simplificado
 def not_found(error):
     """Handler para rotas não encontradas"""
     return jsonify({
@@ -517,8 +462,7 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handler para erros internos"""
-    logger.error("Erro interno do servidor", error=str(error))
+    logger_error("Erro 500: Erro interno do servidor", error_details=str(error))
     return jsonify({
-        'error': 'Erro interno do servidor',
-        'message': 'Tente novamente em alguns instantes'
+        'error': 'Erro interno do servidor (ULTRA_SIMPLE_DEBUG MODE)'
     }), 500

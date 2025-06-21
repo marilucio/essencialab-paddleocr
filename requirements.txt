@@ -1,6 +1,2 @@
 flask==2.3.3
 gunicorn==21.2.0
-flask-cors==4.0.0
-structlog==23.2.0
-# Adicione python-dotenv se o config_module (mesmo que comentado) o importar globalmente
-# python-dotenv==1.0.0
