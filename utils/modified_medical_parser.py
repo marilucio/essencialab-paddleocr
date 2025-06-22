@@ -66,7 +66,7 @@ class MedicalParameterParser:
             ]
         
         # Unidades conhecidas
-        KNOWN_UNITS = self.config.KNOWN_UNITS
+        KNOWN_UNITS = ['g/dL', '%', '/mm³', 'mg/dL', 'mUI/L', 'ng/mL', 'pg/mL', 'UI/L', 'U/L', 'mL/min/1.73m2', 'mEq/L']
         
         # Padrões gerais para qualquer parâmetro
         self.general_patterns = [
@@ -317,59 +317,29 @@ class MedicalParameterParser:
         return 'geral'
     
     def _extract_all_parameters(self, text: str, confidence_threshold: float) -> List[MedicalParameter]:
-        """
-        Extrai todos os parâmetros médicos do texto com uma lógica aprimorada para evitar duplicações e lixo.
-        """
-        found_params = {}
-        lines = text.split('\n')
+        """Extrai todos os parâmetros médicos do texto"""
+        parameters = []
         
-        # Lista de palavras-chave para ignorar, evitando extrações falsas
-        GARBAGE_KEYWORDS = [
-            'data', 'pagina', 'codigo', 'cpf', 'crm', 'medico', 'convenio', 'unidade',
-            'responsavel', 'assinatura', 'resultado', 'exame', 'valor', 'referencia',
-            'material', 'metodo', 'idade', 'sexo', 'nome', 'horario', 'liberacao',
-            'coleta', 'nro.exame', 'masculino', 'feminino', 'dr', 'dra'
-        ]
-
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            
-            # Tenta encontrar um parâmetro conhecido na linha
-            for param_name_key, patterns in self.config.PARAMETER_PATTERNS.items():
-                # Usar o nome principal da chave para a busca
-                if any(unidecode(p.lower()) in unidecode(line_lower) for p in self._get_parameter_variations(param_name_key)):
-                    
-                    # Tentar extrair valor da linha atual ou da próxima
-                    value_text = line
-                    if not re.search(r'\d', value_text):
-                        value_text = line + " " + (lines[i+1] if i+1 < len(lines) else "")
-
-                    # Usar regex mais focado para extrair o valor
-                    # Padrão: (qualquer coisa) (número) (unidade opcional)
-                    match = re.search(r'(\d+[,.]?\d*)', value_text)
-                    if match:
-                        param = self._create_parameter_from_match(param_name_key, match, confidence_threshold + 0.2)
-                        if param:
-                            # Lógica de desduplicação aprimorada
-                            if param.name not in found_params or param.confidence > found_params[param.name].confidence:
-                                found_params[param.name] = param
+        # Primeiro, tentar padrões específicos conhecidos
+        for param_name, patterns in self.compiled_patterns.items():
+            for pattern in patterns:
+                matches = pattern.finditer(text)
+                for match in matches:
+                    param = self._create_parameter_from_match(param_name, match, confidence_threshold + 0.1)
+                    if param and param.confidence >= confidence_threshold:
+                        parameters.append(param)
         
-        # Uma segunda passagem com padrões gerais, mas com validação mais rigorosa
+        # Depois, usar padrões gerais para capturar outros parâmetros
         for pattern in self.general_patterns:
             matches = pattern.finditer(text)
             for match in matches:
                 param = self._create_parameter_from_general_match(match, confidence_threshold)
-                if param:
-                    # Validação rigorosa para evitar lixo
-                    param_name_lower_unidecoded = unidecode(param.name.lower())
-                    if len(param.name) < 4 or any(keyword in param_name_lower_unidecoded for keyword in GARBAGE_KEYWORDS):
-                        continue # Pula este parâmetro por ser lixo provável
-
-                    # Lógica de desduplicação
-                    if param.name not in found_params or param.confidence > found_params[param.name].confidence:
-                        found_params[param.name] = param
-
-        return list(found_params.values())
+                if param and param.confidence >= confidence_threshold:
+                    # Verificar se já não foi capturado
+                    if not any(p.name.lower() == param.name.lower() for p in parameters):
+                        parameters.append(param)
+        
+        return parameters
     
     def _create_parameter_from_match(self, param_name: str, match: re.Match, base_confidence: float) -> Optional[MedicalParameter]:
         """Cria parâmetro a partir de match de padrão específico"""
@@ -408,15 +378,12 @@ class MedicalParameterParser:
             if len(groups) < 2:
                 return None
             
-            name = groups[0].strip().title() # Padronizar para Title Case
-            # Remover palavras comuns de método/material do nome do parâmetro
-            name = re.sub(r'(Material|Metodo|Colorimetrico|Enzimatico|Soro|Edta)\s*:?', '', name, flags=re.IGNORECASE).strip()
-
+            name = groups[0].strip()
             value_str = groups[1].replace(',', '.')
             value = float(value_str)
             
             # Filtrar nomes muito curtos ou inválidos
-            if len(name) < 3 or not re.match(r'^[A-Za-zÀ-ÿ\s\(\)]+$', name): # Permitir parênteses
+            if len(name) < 3 or not re.match(r'^[A-Za-zÀ-ÿ\s]+$', name):
                 return None
             
             # Obter unidade

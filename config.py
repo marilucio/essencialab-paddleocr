@@ -78,6 +78,11 @@ class Config:
         ]
     })
     
+    # Unidades conhecidas
+    KNOWN_UNITS: List[str] = field(default_factory=lambda: [
+        'g/dL', '%', '/mm³', 'mg/dL', 'mUI/L', 'ng/mL', 'pg/mL', 'UI/L', 'U/L', 'mL/min/1.73m2', 'mEq/L'
+    ])
+
     # Reference Ranges (valores de referência padrão)
     REFERENCE_RANGES: Dict[str, Dict[str, any]] = field(default_factory=lambda: {
         'hemoglobina': {'min': 12.0, 'max': 16.0, 'unit': 'g/dL'},
