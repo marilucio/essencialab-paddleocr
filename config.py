@@ -43,6 +43,7 @@ class Config:
     CONFIDENCE_THRESHOLD: float = float(os.getenv('CONFIDENCE_THRESHOLD', '0.7'))
     MIN_TEXT_LENGTH: int = int(os.getenv('MIN_TEXT_LENGTH', '3'))
     MAX_PROCESSING_TIME: int = int(os.getenv('MAX_PROCESSING_TIME', '300'))  # 5 minutos
+    BATCH_MAX_FILES: int = int(os.getenv('BATCH_MAX_FILES', '10'))  # Máximo de arquivos por lote
     
     # Medical Parameters Configuration
     MEDICAL_CATEGORIES: Dict[str, List[str]] = field(default_factory=lambda: {
