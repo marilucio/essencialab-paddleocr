@@ -384,12 +384,16 @@ class MedicalParameterParser:
             return {'error': str(e)}
 
     def _normalize_text(self, text: str) -> str:
-        """Normalização básica do texto"""
+        """Normalização básica do texto, preservando quebras de linha."""
         # Converter vírgulas decimais para pontos
         text = re.sub(r'(\d+),(\d+)', r'\1.\2', text)
-        # Normalizar espaços
-        text = re.sub(r'\s+', ' ', text)
-        return text
+        
+        # Normalizar espaços em cada linha, mas manter as linhas separadas
+        lines = text.split('\n')
+        # Remove espaços extras no início/fim e múltiplos espaços no meio de cada linha
+        processed_lines = [' '.join(line.strip().split()) for line in lines]
+        
+        return '\n'.join(processed_lines)
 
     def _intelligent_parameter_search(self, text: str, confidence_threshold: float) -> List[MedicalParameter]:
         """
