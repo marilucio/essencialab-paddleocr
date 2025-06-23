@@ -31,10 +31,10 @@ RUN mkdir -p $PADDLEOCR_HOME /tmp/uploads /tmp/temp /tmp/logs
 # A variável PADDLEOCR_HOME já está definida pelo ENV
 RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='pt', use_gpu=False, show_log=True)"
 
-# Porta padrão do Railway
-EXPOSE 8080
+# Porta (será definida pela variável de ambiente PORT)
+EXPOSE 5000
 
 # Comando de inicialização direto com Gunicorn, usando a porta do ambiente
 # O 'exec' garante que o Gunicorn seja o processo principal (PID 1)
-# Configurações otimizadas para Railway
-CMD exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --timeout 300 --graceful-timeout 120 --keepalive 5 --log-level info --access-logfile - --error-logfile - --worker-tmp-dir /dev/shm api_server:app
+# Revertendo para usar $PORT. Certifique-se de que a porta exposta do serviço no Railway está configurada para o valor de $PORT (provavelmente 8080).
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --log-level debug --access-logfile - --error-logfile - api_server:app
