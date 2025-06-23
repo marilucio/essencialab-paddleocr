@@ -19,7 +19,6 @@ import structlog
 import config as config_module
 from medical_ocr import MedicalOCRProcessor
 from utils.image_processor import ImageProcessor
-from utils.medical_parser import MedicalParameterParser
 
 # Configurar logging estruturado
 structlog.configure(
@@ -66,7 +65,6 @@ except Exception as e:
 # Inicializar processadores de forma lazy (apenas quando necessário)
 ocr_processor: Optional[MedicalOCRProcessor] = None
 image_processor: Optional[ImageProcessor] = None
-medical_parser: Optional[MedicalParameterParser] = None
 
 def get_ocr_processor() -> MedicalOCRProcessor:
     global ocr_processor
@@ -83,14 +81,6 @@ def get_image_processor() -> ImageProcessor:
         image_processor = ImageProcessor()
         logger.info("ImageProcessor inicializado.")
     return image_processor
-
-def get_medical_parser() -> MedicalParameterParser:
-    global medical_parser
-    if medical_parser is None:
-        logger.info("Inicializando MedicalParameterParser...")
-        medical_parser = MedicalParameterParser()
-        logger.info("MedicalParameterParser inicializado.")
-    return medical_parser
 
 def require_api_key(f):
     """Decorator para validar API key"""
@@ -127,13 +117,12 @@ def health_check():
             'status': 'healthy',
             'timestamp': datetime.utcnow().isoformat(),
             'version': '1.0.0', # Versão da API
-            'components': {
-                'paddleocr': 'ready', # Assumimos que está pronto se a app iniciou; a inicialização é lazy
-                'redis': 'healthy' if redis_client else 'unhealthy',
-                'image_processor': 'ready',
-                'medical_parser': 'ready'
-            }
+        'components': {
+            'paddleocr': 'ready', # Assumimos que está pronto se a app iniciou; a inicialização é lazy
+            'redis': 'healthy' if redis_client else 'unhealthy',
+            'image_processor': 'ready'
         }
+    }
         if redis_client:
             try:
                 redis_client.ping()
@@ -177,8 +166,8 @@ def api_info():
         'features': {
             'gpu_enabled': config_module.config.ENABLE_GPU,
             'cache_enabled': redis_client is not None,
-            'medical_parsing': True, # Assumindo que a funcionalidade completa está restaurada
-            'structured_output': True # Assumindo que a funcionalidade completa está restaurada
+            'medical_parsing': False, # Esta funcionalidade foi movida para uma Edge Function
+            'structured_output': False # Apenas texto bruto é retornado
         }
     })
 
@@ -186,16 +175,6 @@ def api_info():
 def test_route():
     logger.info("Rota /test acessada") 
     return jsonify({'message': 'Servidor está no ar! OCR Restaurado (esperançosamente).', 'timestamp': datetime.utcnow().isoformat()})
-
-@app.route('/parameters', methods=['GET']) 
-@require_api_key 
-def list_parameters():
-    """Lista parâmetros médicos suportados"""
-    return jsonify({
-        'categories': config_module.config.MEDICAL_CATEGORIES,
-        'reference_ranges': config_module.config.REFERENCE_RANGES,
-        'total_parameters': sum(len(params) for params in config_module.config.MEDICAL_CATEGORIES.values())
-    })
 
 @app.route('/ocr', methods=['POST']) 
 @require_api_key 
@@ -226,8 +205,8 @@ def process_ocr():
             'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true',
             'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)),
             'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true',
-            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true',
-            'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
+            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true'
+            # 'medical_parsing' foi removido
         }
         
         cache_key = get_cache_key(file_hash, processing_params)
@@ -261,16 +240,6 @@ def process_ocr():
         ocr_result = ocr_proc_instance.process_file(processed_image_data, file_extension=file_ext, **processing_params)
         logger.info("OCR concluído", request_id=request_id, confidence=ocr_result.get('confidence', 0), text_length=len(ocr_result.get('text', '')))
         
-        structured_data = None
-        if processing_params['medical_parsing'] and ocr_result.get('text'):
-            try:
-                med_parser_instance = get_medical_parser()
-                structured_data = med_parser_instance.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
-                logger.info("Parsing médico concluído", request_id=request_id, parameters_found=len(structured_data.get('parameters', [])))
-            except Exception as e:
-                logger.error("Erro no parsing médico", error=str(e), exc_info=True)
-                structured_data = {'error': f'Erro no parsing médico: {str(e)}'}
-        
         response_data = {
             'success': True,
             'request_id': request_id,
@@ -280,8 +249,7 @@ def process_ocr():
             'file_info': {'filename': file.filename, 'size_bytes': len(file_data), 'format': file_ext, 'hash': file_hash},
             'ocr_details': {'provider': 'paddleocr', 'language': config_module.config.PADDLE_OCR_LANG, 'gpu_used': processing_params['use_gpu'], 'confidence_threshold': processing_params['confidence_threshold']}
         }
-        if structured_data:
-            response_data['structured_data'] = structured_data
+        # A extração de dados estruturados foi removida deste serviço.
         if ocr_result.get('tables'):
             response_data['tables'] = ocr_result['tables']
         if ocr_result.get('layout'):
@@ -328,11 +296,6 @@ def _process_single_file_for_batch(file_obj, index: int, processing_params: Dict
         ocr_proc_instance = get_ocr_processor()
         ocr_result = ocr_proc_instance.process_file(processed_image_data, file_extension=file_ext, **processing_params)
         
-        structured_data = None
-        if processing_params['medical_parsing'] and ocr_result.get('text'):
-            med_parser_instance = get_medical_parser()
-            structured_data = med_parser_instance.parse_medical_text(ocr_result['text'], confidence_threshold=processing_params['confidence_threshold'])
-
         result = {
             'file_index': index,
             'filename': file_obj.filename,
@@ -341,8 +304,7 @@ def _process_single_file_for_batch(file_obj, index: int, processing_params: Dict
             'confidence': ocr_result.get('confidence', 0),
             'processing_time_ms': int((time.time() - file_start_time) * 1000)
         }
-        if structured_data:
-            result['structured_data'] = structured_data
+        # A extração de dados estruturados foi removida deste serviço.
         return result
     except Exception as e:
         logger.error(f"Erro ao processar arquivo {file_obj.filename} no lote", error=str(e), exc_info=True)
@@ -368,8 +330,8 @@ def process_batch():
             'use_gpu': request.form.get('use_gpu', str(config_module.config.ENABLE_GPU)).lower() == 'true',
             'confidence_threshold': float(request.form.get('confidence_threshold', config_module.config.CONFIDENCE_THRESHOLD)),
             'extract_tables': request.form.get('extract_tables', 'true').lower() == 'true', # Manter, pode ser útil
-            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true', # Manter
-            'medical_parsing': request.form.get('medical_parsing', 'true').lower() == 'true'
+            'extract_layout': request.form.get('extract_layout', 'true').lower() == 'true' # Manter
+            # 'medical_parsing' foi removido
         }
 
         results = [_process_single_file_for_batch(f, i, processing_params) for i, f in enumerate(files)]
@@ -404,7 +366,7 @@ def not_found(error):
     return jsonify({
         'error': 'Endpoint não encontrado',
         'message': 'Verifique a URL e método HTTP',
-        'available_endpoints': ['/health', '/info', '/ocr', '/parameters', '/batch', '/test'] # Atualizado
+        'available_endpoints': ['/health', '/info', '/ocr', '/batch', '/test'] # Rota /parameters removida
     }), 404
 
 @app.errorhandler(500)
