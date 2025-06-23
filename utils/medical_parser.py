@@ -417,47 +417,35 @@ class MedicalParameterParser:
         return parameters
 
     def _search_parameter_in_text(self, param_key: str, param_info: Dict, lines: List[str]) -> List[MedicalParameter]:
-        """Busca um parâmetro específico no texto"""
+        """Busca um parâmetro específico no texto com lógica aprimorada."""
         found_parameters = []
         
         for i, line in enumerate(lines):
             line_lower = unidecode(line.lower())
             
-            # Verificar se o nome do parâmetro está na linha
-            if param_key in line_lower:
+            # Usar regex para garantir que a chave do parâmetro seja uma palavra completa
+            if re.search(r'\b' + re.escape(param_key) + r'\b', line_lower):
                 logger.debug(f"Encontrado parâmetro '{param_key}' na linha {i}: {line}")
                 
-                # Buscar valor numérico na mesma linha
+                # Prioridade 1: Buscar valor na mesma linha. Se encontrar, é provável que seja o correto.
                 value = self._extract_value_from_line(line)
                 if value is not None:
-                    param = self._create_parameter(param_info, value, line, 0.8)
+                    # Se o valor for encontrado na mesma linha, damos alta confiança e paramos a busca por este sinônimo.
+                    param = self._create_parameter(param_info, value, line, 0.9)
                     if param:
                         found_parameters.append(param)
-                    continue
-                
-                # Buscar valor nas próximas 3 linhas
-                for j in range(i + 1, min(i + 4, len(lines))):
+                        return found_parameters # Retorna imediatamente com o resultado de alta confiança
+
+                # Prioridade 2: Se não encontrou na mesma linha, busca nas próximas 3 linhas.
+                for j in range(i + 1, min(i + 3, len(lines))):
                     next_line = lines[j].strip()
                     if next_line:
                         value = self._extract_value_from_line(next_line)
-                        if value is not None:
-                            # Verificar se o valor faz sentido para este parâmetro
-                            if self._value_makes_sense(param_info, value):
-                                param = self._create_parameter(param_info, value, f"{line} -> {next_line}", 0.7)
-                                if param:
-                                    found_parameters.append(param)
-                                break
-                
-                # Buscar "Resultado:" nas próximas linhas
-                for j in range(i + 1, min(i + 5, len(lines))):
-                    next_line = lines[j].strip()
-                    if 'resultado' in next_line.lower():
-                        value = self._extract_value_from_line(next_line)
                         if value is not None and self._value_makes_sense(param_info, value):
-                            param = self._create_parameter(param_info, value, f"{line} -> {next_line}", 0.9)
+                            param = self._create_parameter(param_info, value, f"{line} -> {next_line}", 0.75)
                             if param:
                                 found_parameters.append(param)
-                            break
+                                return found_parameters # Para após encontrar o primeiro valor válido
         
         return found_parameters
 
@@ -542,15 +530,22 @@ class MedicalParameterParser:
             return 'normal'
 
     def _remove_duplicates(self, parameters: List[MedicalParameter]) -> List[MedicalParameter]:
-        """Remove duplicatas mantendo a de maior confiança"""
-        unique = {}
+        """
+        Remove duplicatas agrupando pelo nome canônico do parâmetro.
+        Mantém apenas a versão com a maior pontuação de confiança.
+        """
+        unique_by_name = {}
         
         for param in parameters:
-            key = (param.name.lower(), round(param.value, 1))
-            if key not in unique or param.confidence > unique[key].confidence:
-                unique[key] = param
+            # A chave agora é apenas o nome canônico do parâmetro
+            key = param.name.lower()
+            
+            # Se o parâmetro ainda não foi visto ou se o novo tem maior confiança, armazena/substitui.
+            if key not in unique_by_name or param.confidence > unique_by_name[key].confidence:
+                unique_by_name[key] = param
         
-        return list(unique.values())
+        logger.info(f"Removendo duplicatas: {len(parameters)} -> {len(unique_by_name)}")
+        return list(unique_by_name.values())
 
     def _categorize_parameters(self, parameters: List[MedicalParameter]) -> Dict[str, List[Dict]]:
         """Categoriza parâmetros"""
