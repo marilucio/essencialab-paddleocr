@@ -62,15 +62,22 @@ except Exception as e:
     logger.error("Erro ao conectar Redis", error=str(e), exc_info=True)
     redis_client = None
 
-# Inicializar processadores na inicialização do servidor
+# Inicialização lazy dos processadores para evitar timeout no boot
 ocr_processor: Optional[MedicalOCRProcessor] = None
 image_processor: Optional[ImageProcessor] = None
+_initialization_lock = False
 
 def initialize_processors():
-    """Inicializa os processadores na inicialização do servidor"""
-    global ocr_processor, image_processor
+    """Inicializa os processadores de forma lazy"""
+    global ocr_processor, image_processor, _initialization_lock
+    
+    if _initialization_lock:
+        logger.info("Inicialização já em andamento, aguardando...")
+        return
+    
+    _initialization_lock = True
     try:
-        logger.info("Inicializando processadores na inicialização do servidor...")
+        logger.info("Inicializando processadores...")
         ocr_processor = MedicalOCRProcessor()
         image_processor = ImageProcessor()
         logger.info("Processadores inicializados com sucesso!")
@@ -78,24 +85,29 @@ def initialize_processors():
         logger.error("Erro ao inicializar processadores", error=str(e))
         ocr_processor = None
         image_processor = None
+    finally:
+        _initialization_lock = False
 
 def get_ocr_processor() -> MedicalOCRProcessor:
     global ocr_processor
     if ocr_processor is None:
-        logger.warning("OCR processor não inicializado, tentando inicializar agora...")
+        logger.info("OCR processor não inicializado, inicializando agora...")
         initialize_processors()
+        if ocr_processor is None:
+            raise RuntimeError("Falha ao inicializar OCR processor")
     return ocr_processor
 
 def get_image_processor() -> ImageProcessor:
     global image_processor
     if image_processor is None:
-        logger.warning("Image processor não inicializado, tentando inicializar agora...")
+        logger.info("Image processor não inicializado, inicializando agora...")
         initialize_processors()
+        if image_processor is None:
+            raise RuntimeError("Falha ao inicializar Image processor")
     return image_processor
 
-# Inicializar processadores na inicialização do servidor
-logger.info("Inicializando processadores no boot do servidor...")
-initialize_processors()
+# Não inicializar processadores no boot - usar inicialização lazy
+logger.info("Servidor iniciado - processadores serão inicializados sob demanda")
 
 def require_api_key(f):
     """Decorator para validar API key"""

@@ -28,9 +28,9 @@ ENV PADDLEOCR_HOME=/tmp/.paddleocr
 # Criar diretórios necessários
 RUN mkdir -p $PADDLEOCR_HOME /tmp/uploads /tmp/temp /tmp/logs
 
-# Pré-baixar modelos do PaddleOCR para otimizar o boot (Restaurado)
-# A variável PADDLEOCR_HOME já está definida pelo ENV
-RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='pt', use_gpu=False, show_log=True)"
+# Pré-baixar modelos do PaddleOCR para otimizar o boot
+# Usar show_log=False para reduzir output durante build
+RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='pt', use_gpu=False, show_log=False)"
 
 # Porta (será definida pela variável de ambiente PORT)
 EXPOSE 5000
