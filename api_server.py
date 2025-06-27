@@ -62,25 +62,40 @@ except Exception as e:
     logger.error("Erro ao conectar Redis", error=str(e), exc_info=True)
     redis_client = None
 
-# Inicializar processadores de forma lazy (apenas quando necessário)
+# Inicializar processadores na inicialização do servidor
 ocr_processor: Optional[MedicalOCRProcessor] = None
 image_processor: Optional[ImageProcessor] = None
+
+def initialize_processors():
+    """Inicializa os processadores na inicialização do servidor"""
+    global ocr_processor, image_processor
+    try:
+        logger.info("Inicializando processadores na inicialização do servidor...")
+        ocr_processor = MedicalOCRProcessor()
+        image_processor = ImageProcessor()
+        logger.info("Processadores inicializados com sucesso!")
+    except Exception as e:
+        logger.error("Erro ao inicializar processadores", error=str(e))
+        ocr_processor = None
+        image_processor = None
 
 def get_ocr_processor() -> MedicalOCRProcessor:
     global ocr_processor
     if ocr_processor is None:
-        logger.info("Inicializando MedicalOCRProcessor...")
-        ocr_processor = MedicalOCRProcessor()
-        logger.info("MedicalOCRProcessor inicializado.")
+        logger.warning("OCR processor não inicializado, tentando inicializar agora...")
+        initialize_processors()
     return ocr_processor
 
 def get_image_processor() -> ImageProcessor:
     global image_processor
     if image_processor is None:
-        logger.info("Inicializando ImageProcessor...")
-        image_processor = ImageProcessor()
-        logger.info("ImageProcessor inicializado.")
+        logger.warning("Image processor não inicializado, tentando inicializar agora...")
+        initialize_processors()
     return image_processor
+
+# Inicializar processadores na inicialização do servidor
+logger.info("Inicializando processadores no boot do servidor...")
+initialize_processors()
 
 def require_api_key(f):
     """Decorator para validar API key"""

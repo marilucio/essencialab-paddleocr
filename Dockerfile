@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-# Instalar dependências do sistema incluindo Poppler para PDFs
+# Instalar dependências do sistema incluindo Poppler para PDF
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libsm6 \
@@ -38,4 +38,4 @@ EXPOSE 5000
 # Comando de inicialização direto com Gunicorn, usando a porta do ambiente
 # O 'exec' garante que o Gunicorn seja o processo principal (PID 1)
 # Revertendo para usar $PORT. Certifique-se de que a porta exposta do serviço no Railway está configurada para o valor de $PORT (provavelmente 8080).
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --log-level debug --access-logfile - --error-logfile - api_server:app
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 600 --log-level debug --access-logfile - --error-logfile - api_server:app
