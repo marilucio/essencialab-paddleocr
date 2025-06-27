@@ -35,7 +35,6 @@ RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, la
 # Porta (será definida pela variável de ambiente PORT)
 EXPOSE 5000
 
-# Comando de inicialização direto com Gunicorn, usando a porta do ambiente
-# O 'exec' garante que o Gunicorn seja o processo principal (PID 1)
-# Revertendo para usar $PORT. Certifique-se de que a porta exposta do serviço no Railway está configurada para o valor de $PORT (provavelmente 8080).
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 600 --log-level debug --access-logfile - --error-logfile - api_server:app
+# Comando de inicialização com Gunicorn
+# Usar shell form para permitir expansão de variáveis
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 600 --log-level info --access-logfile - --error-logfile - api_server:app
