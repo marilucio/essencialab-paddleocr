@@ -134,9 +134,12 @@ class MedicalOCRProcessor:
         try:
             # Primeiro, tentar extrair texto diretamente
             direct_text = self._extract_pdf_text_direct(file_data)
+            direct_text_length = len(direct_text.strip()) if direct_text else 0
             
-            if direct_text and len(direct_text.strip()) > 100:
-                logger.info("PDF com texto pesquisável detectado")
+            logger.info(f"Extração direta de texto: {direct_text_length} caracteres")
+            
+            if direct_text and direct_text_length > 50:  # Reduzido de 100 para 50
+                logger.info("PDF com texto pesquisável detectado", text_length=direct_text_length)
                 return {
                     'text': direct_text,
                     'confidence': 0.95,
@@ -145,9 +148,16 @@ class MedicalOCRProcessor:
                     'pages_processed': 1
                 }
             
-            # Se não há texto suficiente, converter para imagens e fazer OCR
-            logger.info("Convertendo PDF para imagens para OCR")
-            images = self._pdf_to_images(file_data)
+            # Se não há texto suficiente, tentar usar PyMuPDF para converter páginas
+            logger.info("Texto insuficiente, tentando OCR com PyMuPDF")
+            try:
+                images = self._pdf_to_images_with_fitz(file_data)
+                logger.info(f"Convertido para {len(images)} imagens usando PyMuPDF")
+            except Exception as fitz_error:
+                logger.warning(f"PyMuPDF falhou: {fitz_error}, tentando pdf2image")
+                # Fallback para pdf2image (que precisa do Poppler)
+                images = self._pdf_to_images(file_data)
+                logger.info(f"Convertido para {len(images)} imagens usando pdf2image")
             
             all_results = []
             combined_text = ""
@@ -201,8 +211,36 @@ class MedicalOCRProcessor:
             logger.warning("Erro na extração direta de texto do PDF", error=str(e))
             return ""
     
+    def _pdf_to_images_with_fitz(self, file_data: bytes) -> List[np.ndarray]:
+        """Converte PDF para lista de imagens usando PyMuPDF (não precisa do Poppler)"""
+        try:
+            doc = fitz.open(stream=file_data, filetype="pdf")
+            images = []
+            
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                
+                # Converter página para imagem com alta resolução
+                mat = fitz.Matrix(3.0, 3.0)  # 3x zoom = ~300 DPI
+                pix = page.get_pixmap(matrix=mat)
+                
+                # Converter para numpy array
+                img_data = pix.tobytes("ppm")
+                img = Image.open(io.BytesIO(img_data))
+                np_img = np.array(img)
+                images.append(np_img)
+                
+                pix = None  # Liberar memória
+            
+            doc.close()
+            return images
+            
+        except Exception as e:
+            logger.error("Erro na conversão PDF para imagens com PyMuPDF", error=str(e))
+            raise
+
     def _pdf_to_images(self, file_data: bytes) -> List[np.ndarray]:
-        """Converte PDF para lista de imagens"""
+        """Converte PDF para lista de imagens usando pdf2image (precisa do Poppler)"""
         try:
             # Usar pdf2image para conversão
             images = convert_from_bytes(
@@ -220,7 +258,7 @@ class MedicalOCRProcessor:
             return np_images
             
         except Exception as e:
-            logger.error("Erro na conversão PDF para imagens", error=str(e))
+            logger.error("Erro na conversão PDF para imagens com pdf2image", error=str(e))
             raise
     
     def _process_image(self, file_data: bytes, **kwargs) -> Dict[str, Any]:
