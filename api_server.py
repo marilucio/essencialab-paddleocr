@@ -44,10 +44,19 @@ logger = structlog.get_logger()
 app = Flask(__name__)
 
 # Configurar Flask-CORS
+# Permitir localhost para desenvolvimento e produção para essencialab.app
+allowed_origins = [
+    "https://essencialab.app",
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:3000",  # React dev server alternativo
+    "http://127.0.0.1:5173",  # Localhost alternativo
+    "http://127.0.0.1:3000"   # Localhost alternativo
+]
+
 CORS(app, resources={
-    r"/ocr*": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/parameters": {"origins": "https://essencialab.app", "supports_credentials": True},
-    r"/batch*": {"origins": "https://essencialab.app", "supports_credentials": True},
+    r"/ocr*": {"origins": allowed_origins, "supports_credentials": True},
+    r"/parameters": {"origins": allowed_origins, "supports_credentials": True},
+    r"/batch*": {"origins": allowed_origins, "supports_credentials": True},
     r"/health": {"origins": "*", "supports_credentials": True},
     r"/info": {"origins": "*", "supports_credentials": True},
     r"/test": {"origins": "*", "supports_credentials": True} # Mantendo rota de teste por enquanto
