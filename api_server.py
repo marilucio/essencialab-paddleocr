@@ -63,13 +63,16 @@ CORS(app, resources={
 })
 
 # Configurar Redis para cache
-try:
-    redis_client = redis.from_url(config_module.config.REDIS_URL, decode_responses=True)
-    redis_client.ping()
-    logger.info("Redis conectado com sucesso", redis_url=config_module.config.REDIS_URL)
-except Exception as e:
-    logger.error("Erro ao conectar Redis", error=str(e), exc_info=True)
-    redis_client = None
+REDIS_URL = os.getenv("REDIS_URL")  # sem default para localhost
+redis_client = None
+if REDIS_URL:
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        redis_client.ping()
+        logger.info("Redis conectado.")
+    except Exception as e:
+        logger.warning({"event":"Redis indisponível", "error": str(e)})
+        redis_client = None
 
 # Inicialização lazy dos processadores para evitar timeout no boot
 ocr_processor: Optional[MedicalOCRProcessor] = None
@@ -145,41 +148,17 @@ def get_file_hash(file_data: bytes) -> str:
     """Calcula hash MD5 do arquivo"""
     return hashlib.md5(file_data).hexdigest()
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Endpoint de health check"""
-    try:
-        health_status = {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'version': '1.0.0', # Versão da API
-        'components': {
-            'paddleocr': 'ready', # Assumimos que está pronto se a app iniciou; a inicialização é lazy
-            'redis': 'healthy' if redis_client else 'unhealthy',
-            'image_processor': 'ready'
-        }
-    }
-        if redis_client:
-            try:
-                redis_client.ping()
-            except Exception:
-                logger.error("Health check: Falha no ping do Redis", exc_info=True)
-                health_status['components']['redis'] = 'unhealthy'
-        
-        unhealthy_components = [k for k, v in health_status['components'].items() if v == 'unhealthy']
-        if unhealthy_components:
-            health_status['status'] = 'degraded'
-            health_status['issues'] = unhealthy_components
-        
-        status_code = 200 if health_status['status'] == 'healthy' else 503
-        return jsonify(health_status), status_code
-    except Exception as e:
-        logger.error("Erro no health check", error=str(e), exc_info=True)
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.utcnow().isoformat()
-        }), 503
+@app.get("/health")
+def health():
+    ok = True
+    redis_ok = None
+    if redis_client:
+        try:
+            redis_client.ping()
+            redis_ok = True
+        except Exception:
+            redis_ok = False
+    return {"status":"ok", "redis": redis_ok}
 
 @app.route('/info', methods=['GET'])
 def api_info():
