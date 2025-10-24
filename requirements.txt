@@ -1,5 +1,5 @@
 # Core PaddleOCR - versões específicas para compatibilidade
-    paddlepaddle==2.5.2
+    paddlepaddle==2.6.2
     paddleocr==2.7.0.3
 
     # Web Framework
