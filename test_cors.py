@@ -12,7 +12,7 @@ import os
 def test_health_endpoint():
     """Testa o endpoint de health check"""
     try:
-        url = "https://essencialab-paddleocr-production.up.railway.app/health"
+        url = "https://ocr.essencialab.app/health"
         print(f"Testando endpoint de health: {url}")
         
         response = requests.get(url, timeout=10)
@@ -34,7 +34,7 @@ def test_health_endpoint():
 def test_cors_preflight():
     """Testa requisição OPTIONS (preflight CORS)"""
     try:
-        url = "https://essencialab-paddleocr-production.up.railway.app/ocr"
+        url = "https://ocr.essencialab.app/ocr"
         print(f"\nTestando CORS preflight: {url}")
         
         headers = {
@@ -70,7 +70,7 @@ def test_cors_preflight():
 def test_info_endpoint():
     """Testa o endpoint de informações da API"""
     try:
-        url = "https://essencialab-paddleocr-production.up.railway.app/info"
+        url = "https://ocr.essencialab.app/info"
         print(f"\nTestando endpoint de info: {url}")
         
         response = requests.get(url, timeout=10)

@@ -106,9 +106,9 @@ Endpoint de teste para verificar se o servidor está respondendo.
 
 ### URLs de Monitoramento
 
-- Health Check: `https://essencialab-paddleocr-production.up.railway.app/health`
-- Info da API: `https://essencialab-paddleocr-production.up.railway.app/info`
-- Teste: `https://essencialab-paddleocr-production.up.railway.app/test`
+- Health Check: `https://ocr.essencialab.app/health`
+- Info da API: `https://ocr.essencialab.app/info`
+- Teste: `https://ocr.essencialab.app/test`
 
 ## 🔄 Deploy
 

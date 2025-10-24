@@ -58,7 +58,7 @@ async function testHealthEndpoint() {
     console.log('-'.repeat(40));
     
     try {
-        const url = 'https://essencialab-paddleocr-production.up.railway.app/health';
+        const url = 'https://ocr.essencialab.app/health';
         console.log(`URL: ${url}`);
         
         const response = await makeRequest(url);
@@ -85,7 +85,7 @@ async function testCORSPreflight() {
     console.log('-'.repeat(40));
     
     try {
-        const url = 'https://essencialab-paddleocr-production.up.railway.app/ocr';
+        const url = 'https://ocr.essencialab.app/ocr';
         console.log(`URL: ${url}`);
         
         const headers = {
@@ -124,7 +124,7 @@ async function testInfoEndpoint() {
     console.log('-'.repeat(40));
     
     try {
-        const url = 'https://essencialab-paddleocr-production.up.railway.app/info';
+        const url = 'https://ocr.essencialab.app/info';
         console.log(`URL: ${url}`);
         
         const response = await makeRequest(url);

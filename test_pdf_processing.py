@@ -11,7 +11,7 @@ def test_pdf_processing():
     """Testa o processamento de PDF no servidor"""
     
     # URL do servidor (ajuste conforme necessário)
-    base_url = "https://essencialab-paddleocr-production.up.railway.app"
+    base_url = "https://ocr.essencialab.app"
     api_key = "paddleocr-key-2024"
     
     print("🔍 Testando servidor PaddleOCR...")

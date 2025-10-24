@@ -1,0 +1,21 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 600
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+[environment]
+PORT = "8000"
+PADDLEOCR_API_KEY = "paddleocr-key-2024"
+ENABLE_GPU = "false"
+PADDLE_OCR_LANG = "pt"
+MAX_FILE_SIZE = "10485760"
+LOG_LEVEL = "INFO"
+WORKERS = "1"
+
+[network]
+port = 8000
+protocol = "http"

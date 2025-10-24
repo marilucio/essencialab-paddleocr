@@ -46,6 +46,7 @@ app = Flask(__name__)
 # Configurar Flask-CORS
 # Permitir localhost para desenvolvimento e produção para essencialab.app
 allowed_origins = [
+    "https://app.essencialab.app",
     "https://essencialab.app",
     "http://localhost:5173",  # Vite dev server
     "http://localhost:3000",  # React dev server alternativo
