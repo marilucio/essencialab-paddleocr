@@ -1,15 +1,15 @@
 FROM python:3.9-slim
 
 # Instalar dependências do sistema incluindo Poppler para PDF
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
     libgomp1 \
-    wget \
-    libgl1-mesa-glx \
+    libgl1 \
     poppler-utils \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
