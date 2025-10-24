@@ -33,7 +33,8 @@ RUN mkdir -p $PADDLEOCR_HOME /tmp/uploads /tmp/temp /tmp/logs
 RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='pt', use_gpu=False, show_log=False)"
 
 # Porta (será definida pela variável de ambiente PORT)
-EXPOSE 5000
+EXPOSE 8000
+ENV PORT=8000
 
 # Comando de inicialização com Gunicorn
 # Usar shell form para permitir expansão de variáveis
