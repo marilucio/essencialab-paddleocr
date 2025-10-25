@@ -177,7 +177,7 @@ def validate_config() -> bool:
     """Valida as configurações"""
     global config # Precisamos declarar config como global para modificá-la aqui
     try:
-        # Verificar diretórios - com fallback para Railway
+        # Verificar diretórios - com fallback para ambiente/container (Coolify)
         # Usar os diretórios padrão definidos na classe Config inicialmente
         temp_dir_to_check = config.TEMP_DIR
         upload_dir_to_check = config.UPLOAD_DIR

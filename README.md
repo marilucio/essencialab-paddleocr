@@ -1,8 +1,8 @@
 # EssenciaLab PaddleOCR Service
 
-Serviço de OCR otimizado para processamento de exames médicos usando PaddleOCR, hospedado no Railway.
+Serviço de OCR otimizado para processamento de exames médicos usando PaddleOCR, hospedado no Coolify.
 
-## 🚀 Deploy no Railway
+## 🚀 Deploy no Coolify
 
 ### Configurações Aplicadas
 
@@ -10,7 +10,7 @@ Serviço de OCR otimizado para processamento de exames médicos usando PaddleOCR
 - **Health Check**: Timeout aumentado para 600s
 - **Workers**: 1 worker para evitar problemas de memória
 - **Timeout**: 600s para processamento de arquivos grandes
-- **GPU**: Desabilitado (Railway não suporta GPU)
+- **GPU**: Desabilitado (ambiente padrão sem GPU)
 - **Redis**: Desabilitado para evitar erros de conexão
 
 ### Arquivos Principais
@@ -20,7 +20,7 @@ Serviço de OCR otimizado para processamento de exames médicos usando PaddleOCR
 - `config.py` - Configurações do sistema
 - `utils/image_processor.py` - Pré-processamento de imagens
 - `Dockerfile` - Container Docker
-- `railway.toml` - Configuração do Railway
+- `coolify.toml` - Configuração opcional para Coolify (na maioria dos casos, a configuração é feita via UI)
 - `.env` - Variáveis de ambiente
 
 ## 🔧 Endpoints da API
@@ -112,9 +112,9 @@ Endpoint de teste para verificar se o servidor está respondendo.
 
 ## 🔄 Deploy
 
-### Automático (Recomendado)
+### Automático (via Coolify)
 1. Commit e push das alterações
-2. Railway detecta mudanças e faz deploy automático
+2. Configure o serviço no Coolify (via UI) apontando para seu repositório ou imagem Docker
 3. Monitorar logs durante deploy
 
 ### Manual
@@ -125,7 +125,7 @@ chmod +x deploy.sh
 
 # Fazer commit e push
 git add .
-git commit -m "fix: otimizações para Railway"
+git commit -m "fix: otimizações para Coolify"
 git push origin main
 ```
 
@@ -137,7 +137,7 @@ git push origin main
 # API
 PADDLEOCR_API_KEY=paddleocr-key-2024
 HOST=0.0.0.0
-PORT=8080  # Definido pelo Railway
+PORT=8080
 
 # Performance
 WORKERS=1
@@ -171,7 +171,7 @@ curl http://localhost:5000/health
 ## 📋 Checklist de Deploy
 
 - [ ] Dockerfile otimizado
-- [ ] railway.toml configurado
+- [ ] coolify.toml configurado (opcional)
 - [ ] .env com variáveis corretas
 - [ ] Inicialização lazy implementada
 - [ ] Health check timeout aumentado
@@ -183,7 +183,7 @@ curl http://localhost:5000/health
 
 ## 🔗 Links Úteis
 
-- [Railway Docs](https://docs.railway.app/)
+- [Coolify Docs](https://docs.coolify.io/)
 - [PaddleOCR Docs](https://github.com/PaddlePaddle/PaddleOCR)
 - [Flask Docs](https://flask.palletsprojects.com/)
 - [Gunicorn Docs](https://gunicorn.org/)
@@ -192,7 +192,7 @@ curl http://localhost:5000/health
 
 Em caso de problemas:
 
-1. Verificar logs do Railway
+1. Verificar logs no Coolify
 2. Testar endpoints de health check
 3. Verificar configurações de ambiente
 4. Consultar este README para troubleshooting

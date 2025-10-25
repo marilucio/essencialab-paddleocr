@@ -1,17 +1,12 @@
 #!/bin/bash
-# Script de build customizado para Railway
+# Script de build customizado para Coolify / Docker
 
-echo "🚀 Iniciando build customizado para Railway..."
+echo "🚀 Iniciando build customizado para Coolify..."
 
-# Configurar variáveis de ambiente
+# Variáveis e diretórios temporários
 export PADDLEOCR_HOME=/tmp/.paddleocr
 export HOME=/tmp
-
-# Criar diretórios necessários
-mkdir -p /tmp/.paddleocr
-mkdir -p /tmp/uploads
-mkdir -p /tmp/temp
-mkdir -p /tmp/logs
+mkdir -p /tmp/.paddleocr /tmp/uploads /tmp/temp /tmp/logs
 
 # Instalar dependências
 echo "📦 Instalando dependências..."
@@ -33,14 +28,7 @@ except Exception as e:
     print('Os modelos serão baixados na primeira execução.')
 "
 
-# Copiar arquivo .env se existir
-if [ -f ".env.railway" ]; then
-    cp .env.railway .env
-    echo "✅ Arquivo .env configurado"
-fi
-
 # Tornar scripts executáveis
 chmod +x start.sh
-chmod +x start_railway.py
 
 echo "✅ Build concluído!"

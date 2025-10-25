@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script de deploy otimizado para Railway
-# Este script prepara o ambiente para deploy no Railway
+# Script de deploy otimizado para Coolify
+# Este script prepara o ambiente para deploy no Coolify (via Docker)
 
-echo "🚀 Preparando deploy para Railway..."
+echo "🚀 Preparando deploy para Coolify..."
 
 # Verificar se estamos no diretório correto
 if [ ! -f "requirements.txt" ]; then
@@ -33,7 +33,7 @@ mkdir -p temp uploads logs utils
 
 # Verificar arquivos essenciais
 echo "🔍 Verificando arquivos essenciais..."
-required_files=("api_server.py" "medical_ocr.py" "config.py" "Dockerfile" "railway.toml")
+required_files=("api_server.py" "medical_ocr.py" "config.py" "Dockerfile" "coolify.toml")
 
 for file in "${required_files[@]}"; do
     if [ ! -f "$file" ]; then
@@ -42,11 +42,10 @@ for file in "${required_files[@]}"; do
     fi
 done
 
-# Verificar configuração do Railway
-echo "⚙️ Verificando configuração do Railway..."
-if [ ! -f "railway.toml" ]; then
-    echo "❌ Erro: railway.toml não encontrado"
-    exit 1
+# Verificar configuração do Coolify
+echo "⚙️ Verificando configuração do Coolify..."
+if [ ! -f "coolify.toml" ]; then
+    echo "⚠️ Aviso: coolify.toml não encontrado (Coolify geralmente usa configuração via UI). Continuando."
 fi
 
 # Verificar variáveis de ambiente
@@ -98,11 +97,11 @@ echo "   - Max file size: 10MB"
 echo "   - GPU: Desabilitado"
 echo "   - Redis: Desabilitado (evita erros de conexão)"
 echo ""
-echo "🚀 Pronto para deploy no Railway!"
+echo "🚀 Pronto para deploy no Coolify!"
 echo ""
 echo "Próximos passos:"
 echo "1. Commit e push das alterações"
-echo "2. Deploy automático será iniciado no Railway"
+echo "2. Configure o serviço no Coolify com a imagem Docker gerada"
 echo "3. Monitorar logs para verificar inicialização"
 echo ""
 echo "URLs importantes:"
