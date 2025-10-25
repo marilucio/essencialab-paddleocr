@@ -12,7 +12,7 @@ class Config:
     # API Configuration
     API_KEY: str = os.getenv('PADDLEOCR_API_KEY', os.getenv('API_KEY', 'paddleocr-key-2024'))
     HOST: str = os.getenv('HOST', '0.0.0.0')
-    PORT: int = int(os.getenv('PORT', '5000')) # Ajustado para 5000 para corresponder ao Dockerfile
+    PORT: int = int(os.getenv('PORT', '8000')) # Ajustado para 8000 para corresponder ao Dockerfile
     DEBUG: bool = os.getenv('DEBUG', 'false').lower() == 'true'
     WORKERS: int = int(os.getenv('WORKERS', '2'))
     
