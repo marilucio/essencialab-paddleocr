@@ -36,6 +36,6 @@ RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, la
 EXPOSE 8000
 ENV PORT=8000
 
-# Comando de inicialização com Gunicorn
+# Comando de inicialização com Gunicorn usando arquivo de configuração otimizado
 # Usar shell form para permitir expansão de variáveis
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 600 --log-level info --access-logfile - --error-logfile - api_server:app
+CMD gunicorn --config gunicorn.conf.py api_server:app

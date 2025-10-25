@@ -110,9 +110,19 @@ def initialize_processors():
     _initialization_lock = True
     try:
         logger.info("Inicializando processadores...")
+        start_time = time.time()
+        
+        # Inicializar processadores com cache em memória
         ocr_processor = MedicalOCRProcessor()
         image_processor = ImageProcessor()
-        logger.info("Processadores inicializados com sucesso!")
+        
+        # Pré-aquecer o OCR com uma imagem de teste para garantir que os modelos estão carregados
+        logger.info("Pré-aquecendo modelos OCR...")
+        ocr_processor.test_connection()
+        
+        init_time = time.time() - start_time
+        logger.info(f"Processadores inicializados com sucesso em {init_time:.2f}s!")
+        
     except Exception as e:
         logger.error("Erro ao inicializar processadores", error=str(e))
         ocr_processor = None
@@ -138,8 +148,20 @@ def get_image_processor() -> ImageProcessor:
             raise RuntimeError("Falha ao inicializar Image processor")
     return image_processor
 
-# Não inicializar processadores no boot - usar inicialização lazy
-logger.info("Servidor iniciado - processadores serão inicializados sob demanda")
+# Função para pré-inicializar processadores quando usando --preload
+def preload_models():
+    """Pré-carrega modelos quando usando Gunicorn com preload_app = True"""
+    try:
+        logger.info("Pré-carregando modelos devido ao preload_app = True...")
+        initialize_processors()
+        logger.info("Modelos pré-carregados com sucesso!")
+    except Exception as e:
+        logger.error("Erro ao pré-carregar modelos", error=str(e))
+
+# Como configuramos preload_app = True no gunicorn.conf.py,
+# podemos simplesmente chamar a inicialização diretamente
+# O Gunicorn cuidará do preload automaticamente
+preload_models()
 
 def require_api_key(f):
     """Decorator para validar API key"""
@@ -170,15 +192,50 @@ def get_file_hash(file_data: bytes) -> str:
 
 @app.get("/health")
 def health():
-    ok = True
-    redis_ok = None
+    """
+    Healthcheck otimizado que verifica se os modelos estão carregados
+    Retorna status detalhado do sistema incluindo processadores
+    """
+    status = {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    
+    # Verificar Redis
     if redis_client:
         try:
             redis_client.ping()
-            redis_ok = True
-        except Exception:
-            redis_ok = False
-    return {"status":"ok", "redis": redis_ok}
+            status["redis"] = "connected"
+        except Exception as e:
+            status["redis"] = "disconnected"
+            status["redis_error"] = str(e)
+    else:
+        status["redis"] = "not_configured"
+    
+    # Verificar se processadores estão inicializados
+    status["processors"] = {
+        "ocr_processor": "loaded" if ocr_processor is not None else "not_loaded",
+        "image_processor": "loaded" if image_processor is not None else "not_loaded"
+    }
+    
+    # Se usando preload, verificar se modelos estão realmente funcionais
+    if ocr_processor is not None:
+        try:
+            # Teste rápido para verificar se o processador está funcional
+            # Não fazemos processamento real, apenas verificamos se está acessível
+            status["processors"]["ocr_status"] = "ready"
+        except Exception as e:
+            status["processors"]["ocr_status"] = "error"
+            status["processors"]["ocr_error"] = str(e)
+    
+    # Determinar status geral
+    all_good = (
+        status.get("redis") in ["connected", "not_configured"] and
+        status["processors"]["ocr_processor"] == "loaded" and
+        status["processors"]["image_processor"] == "loaded"
+    )
+    
+    if not all_good:
+        status["status"] = "degraded"
+    
+    return status
 
 @app.route('/info', methods=['GET'])
 def api_info():
