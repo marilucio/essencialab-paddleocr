@@ -1,4 +1,5 @@
-# Core PaddleOCR - Declarando ambos explicitamente para garantir a instalação
+# Core dependencies - Forçando NumPy v1.x para compatibilidade ABI
+numpy<2
 paddlepaddle
 paddleocr==2.7.0.3
 
