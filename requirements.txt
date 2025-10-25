@@ -1,4 +1,5 @@
-# Core PaddleOCR - Deixe o paddleocr resolver suas próprias dependências
+# Core PaddleOCR - Declarando ambos explicitamente para garantir a instalação
+paddlepaddle
 paddleocr==2.7.0.3
 
 # Web Framework
@@ -6,7 +7,7 @@ flask==2.3.3
 flask-cors==4.0.0
 gunicorn==21.2.0
 
-# Image Processing - A versão correta de opencv será instalada pelo paddleocr
+# Image Processing
 pillow==10.0.1
 
 # PDF Processing
