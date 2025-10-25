@@ -1,38 +1,23 @@
-# Core PaddleOCR - versões específicas para compatibilidade
-    paddlepaddle==2.6.2
-    paddleocr==2.7.0.3
+# Core PaddleOCR - Deixe o paddleocr resolver suas próprias dependências
+paddleocr==2.7.0.3
 
-    # Web Framework
-    flask==2.3.3
-    flask-cors==4.0.0
-    gunicorn==21.2.0
+# Web Framework
+flask==2.3.3
+flask-cors==4.0.0
+gunicorn==21.2.0
 
-    # Image Processing - versões compatíveis
-    opencv-python-headless==4.8.1.78
-    pillow==10.0.1
-    numpy==1.24.3
+# Image Processing - A versão correta de opencv será instalada pelo paddleocr
+pillow==10.0.1
 
-    # PDF Processing
-    PyMuPDF==1.20.2
-    pdf2image==1.16.3
+# PDF Processing
+PyMuPDF==1.20.2
+pdf2image==1.16.3
 
-    # Cache and Database
-    redis==5.0.1
+# Cache and Database
+redis==5.0.1
 
-    # Utilities
-    python-dotenv==1.0.0
-    requests==2.31.0
-    structlog==23.2.0
-    unidecode==1.3.7
-
-    # Data Processing
-    regex==2023.10.3
-    python-dateutil==2.8.2
-
-    # Additional dependencies for PaddleOCR
-    shapely==2.0.2
-    pyclipper==1.3.0.post5
-    imgaug==0.4.0
-    lmdb==1.4.1
-    tqdm==4.66.1
-    visualdl==2.5.3
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+structlog==23.2.0
+unidecode==1.3.7
