@@ -48,6 +48,10 @@ app = Flask(__name__)
 allowed_origins = [
     "https://app.essencialab.app",
     "https://essencialab.app",
+    # Permitir deploys no Netlify (domínio principal e deploy previews)
+    "https://essencialab.netlify.app",
+    r"^https://.*\\.netlify\\.app$",
+    r"^https://deploy-preview-.*--.*\\.netlify\\.app$",
     "http://localhost:5173",  # Vite dev server
     "http://localhost:3000",  # React dev server alternativo
     "http://127.0.0.1:5173",  # Localhost alternativo
@@ -55,12 +59,27 @@ allowed_origins = [
 ]
 
 CORS(app, resources={
-    r"/ocr*": {"origins": allowed_origins, "supports_credentials": True},
-    r"/parameters": {"origins": allowed_origins, "supports_credentials": True},
-    r"/batch*": {"origins": allowed_origins, "supports_credentials": True},
-    r"/health": {"origins": "*", "supports_credentials": True},
-    r"/info": {"origins": "*", "supports_credentials": True},
-    r"/test": {"origins": "*", "supports_credentials": True} # Mantendo rota de teste por enquanto
+    r"/ocr*": {
+        "origins": allowed_origins,
+        "supports_credentials": True,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Authorization", "X-Requested-With", "Content-Type"]
+    },
+    r"/parameters": {
+        "origins": allowed_origins,
+        "supports_credentials": True,
+        "methods": ["GET", "OPTIONS"],
+        "allow_headers": ["Authorization", "X-Requested-With", "Content-Type"]
+    },
+    r"/batch*": {
+        "origins": allowed_origins,
+        "supports_credentials": True,
+        "methods": ["POST", "OPTIONS"],
+        "allow_headers": ["Authorization", "X-Requested-With", "Content-Type"]
+    },
+    r"/health": {"origins": "*"},
+    r"/info": {"origins": "*"},
+    r"/test": {"origins": "*"}
 })
 
 # Configurar Redis para cache
