@@ -164,15 +164,23 @@ def preload_models():
 preload_models()
 
 def require_api_key(f):
-    """Decorator para validar API key"""
+    """Decorator para validar API key (mantido para uso em outras rotas se necessário)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('Authorization')
-        if api_key:
-            api_key = api_key.replace('Bearer ', '')
+        auth_header = request.headers.get('Authorization')
+        auth_header_present = bool(auth_header)
+        
+        if not auth_header_present:
+            logger.warn("Tentativa de acesso sem Authorization header")
+            return jsonify({
+                'error': 'API key inválida ou ausente',
+                'message': 'Forneça uma API key válida no header Authorization'
+            }), 401
+        
+        api_key = auth_header.replace('Bearer ', '') if auth_header else ''
         
         if not api_key or api_key != config_module.config.API_KEY:
-            logger.warn("Tentativa de acesso com API key inválida ou ausente", received_key=api_key)
+            logger.warn("Tentativa de acesso com API key inválida", auth_header_present=True)
             return jsonify({
                 'error': 'API key inválida ou ausente',
                 'message': 'Forneça uma API key válida no header Authorization'
@@ -269,12 +277,12 @@ def test_route():
     return jsonify({'message': 'Servidor está no ar! OCR Restaurado (esperançosamente).', 'timestamp': datetime.utcnow().isoformat()})
 
 @app.route('/ocr', methods=['POST']) 
-@require_api_key 
 def process_ocr():
     """Endpoint principal para processamento OCR"""
     start_time = time.time()
     request_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
-    logger.info("Iniciando processamento OCR", request_id=request_id)
+    auth_header_present = bool(request.headers.get('Authorization'))
+    logger.info("Iniciando processamento OCR", request_id=request_id, auth_header_present=auth_header_present)
     
     try:
         if 'file' not in request.files:
@@ -403,12 +411,12 @@ def _process_single_file_for_batch(file_obj, index: int, processing_params: Dict
         return {'file_index': index, 'filename': file_obj.filename, 'success': False, 'error': str(e), 'processing_time_ms': int((time.time() - file_start_time) * 1000)}
 
 @app.route('/batch', methods=['POST']) 
-@require_api_key 
 def process_batch():
     """Processamento em lote de múltiplos arquivos"""
     start_time = time.time()
     request_id = hashlib.md5(f"batch_{time.time()}".encode()).hexdigest()[:8]
-    logger.info("Iniciando processamento em lote", request_id=request_id)
+    auth_header_present = bool(request.headers.get('Authorization'))
+    logger.info("Iniciando processamento em lote", request_id=request_id, auth_header_present=auth_header_present)
     
     try:
         files = request.files.getlist('files') # Alterado de 'file' para 'files'
