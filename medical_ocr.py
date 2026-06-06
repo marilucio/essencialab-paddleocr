@@ -165,8 +165,8 @@ class MedicalOCRProcessor:
             
             for i, image in enumerate(images):
                 logger.info(f"Processando página {i+1}/{len(images)}")
-                
-                page_result = self._process_image_array(image, **kwargs)
+
+                page_result = self._process_image_array(image, _from_pdf=True, **kwargs)
                 all_results.append(page_result)
                 
                 if page_result.get('text'):
@@ -280,16 +280,17 @@ class MedicalOCRProcessor:
     def _process_image_array(self, image: np.ndarray, **kwargs) -> Dict[str, Any]:
         """Processa array numpy de imagem"""
         start_time = time.time()
-        
+
         if not self.ocr_engine:
             raise RuntimeError("Motor OCR não inicializado. Verifique os logs para erros de inicialização do PaddleOCR.")
-        
+
         try:
-            # Parâmetros de processamento
-            extract_tables = kwargs.get('extract_tables', True)
-            extract_layout = kwargs.get('extract_layout', True)
             confidence_threshold = kwargs.get('confidence_threshold', self.config.CONFIDENCE_THRESHOLD)
-            
+            # Fonte da chamada: PDF pages podem usar PP-Structure, imagens diretas não
+            from_pdf = kwargs.get('_from_pdf', False)
+            extract_tables = kwargs.get('extract_tables', True) and from_pdf
+            extract_layout = kwargs.get('extract_layout', True) and from_pdf
+
             result = {
                 'text': '',
                 'confidence': 0.0,
@@ -297,8 +298,9 @@ class MedicalOCRProcessor:
                 'lines': [],
                 'processing_time': 0
             }
-            
-            # Usar PP-Structure se disponível e solicitado
+
+            # PP-Structure APENAS para páginas de PDF (onde há tabelas complexas)
+            # Para imagens diretas (fotos de exame), usar OCR básico — 5-10x mais rápido
             if self.structure_engine and (extract_tables or extract_layout):
                 try:
                     structure_result = self._process_with_structure(image, **kwargs)
@@ -308,10 +310,10 @@ class MedicalOCRProcessor:
                     basic_result = self._process_with_basic_ocr(image, confidence_threshold)
                     result.update(basic_result)
             else:
-                # OCR básico
+                # OCR básico — rápido e suficiente para fotos de exames
                 basic_result = self._process_with_basic_ocr(image, confidence_threshold)
                 result.update(basic_result)
-            
+
             result['processing_time'] = time.time() - start_time
             return result
             

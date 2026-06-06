@@ -7,6 +7,7 @@ import os
 import time
 import hashlib
 import traceback
+import signal
 from datetime import datetime
 from typing import Dict, Any, Optional
 from functools import wraps
@@ -324,21 +325,30 @@ def process_ocr():
             except Exception as e:
                 logger.warning("Erro ao acessar cache", error=str(e), exc_info=True)
         
-        logger.info("Processando arquivo", request_id=request_id, filename=file.filename, size_mb=f"{len(file_data) / 1024 / 1024:.2f}", file_hash=file_hash)
-        
+        file_size_mb = len(file_data) / 1024 / 1024
+        logger.info("Processando arquivo", request_id=request_id, filename=file.filename, size_mb=f"{file_size_mb:.2f}", file_hash=file_hash)
+
         processed_image_data = file_data
         if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
             try:
+                preproc_start = time.time()
                 img_proc = get_image_processor()
                 processed_image_data = img_proc.preprocess_image(file_data)
-                logger.info("Imagem pré-processada", request_id=request_id)
+                preproc_ms = int((time.time() - preproc_start) * 1000)
+                logger.info("Imagem pré-processada", request_id=request_id, preproc_ms=preproc_ms)
             except Exception as e:
-                logger.warning("Erro no pré-processamento da imagem", error=str(e), exc_info=True)
-                # Continuar com os dados originais do arquivo se o pré-processamento falhar
-        
+                logger.warning("Erro no pré-processamento da imagem, usando original", error=str(e), request_id=request_id)
+
+        ocr_start = time.time()
         ocr_proc_instance = get_ocr_processor()
         ocr_result = ocr_proc_instance.process_file(processed_image_data, file_extension=file_ext, **processing_params)
-        logger.info("OCR concluído", request_id=request_id, confidence=ocr_result.get('confidence', 0), text_length=len(ocr_result.get('text', '')))
+        ocr_ms = int((time.time() - ocr_start) * 1000)
+        total_ms = int((time.time() - start_time) * 1000)
+
+        if total_ms > 30000:
+            logger.warning("Processamento lento detectado", request_id=request_id, total_ms=total_ms, ocr_ms=ocr_ms, size_mb=f"{file_size_mb:.2f}")
+
+        logger.info("OCR concluído", request_id=request_id, confidence=ocr_result.get('confidence', 0), text_length=len(ocr_result.get('text', '')), ocr_ms=ocr_ms, total_ms=total_ms)
         
         response_data = {
             'success': True,

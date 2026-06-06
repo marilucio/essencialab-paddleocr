@@ -15,8 +15,9 @@ workers = int(os.getenv('WORKERS', '1'))
 # Tipo de worker - sync é melhor para processamento pesado de OCR
 worker_class = "sync"
 
-# Timeout - aumentado para processamento de arquivos grandes
-timeout = int(os.getenv('TIMEOUT', '600'))  # 10 minutos
+# Timeout - 120s é suficiente para OCR de imagens (sem PP-Structure: ~10-30s)
+# PDFs grandes podem demorar mais, mas 120s evita workers travados indefinidamente
+timeout = int(os.getenv('TIMEOUT', '120'))
 keepalive = 5
 
 # Preload - carrega a aplicação antes de fazer fork dos workers

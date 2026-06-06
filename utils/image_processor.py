@@ -18,7 +18,7 @@ class ImageProcessor:
     def __init__(self):
         self.default_dpi = 300
         self.min_resolution = (800, 600)
-        self.max_resolution = (4000, 3000)
+        self.max_resolution = (2048, 2048)  # Reduzido de 4000x3000 — 2048 é suficiente para OCR
     
     def preprocess_image(self, image_data: bytes) -> bytes:
         """
@@ -52,26 +52,28 @@ class ImageProcessor:
             return image_data  # Retornar imagem original em caso de erro
     
     def _apply_processing_pipeline(self, image: Image.Image) -> Image.Image:
-        """Aplica pipeline completo de processamento"""
-        
-        # 1. Redimensionar se necessário
+        """Aplica pipeline leve de processamento — otimizado para velocidade.
+
+        PaddleOCR já faz pré-processamento interno (angle cls, normalização).
+        Passos pesados como binarização, bilateral filter e detecção de perspectiva
+        foram removidos pois adicionam 5-15s de processamento sem ganho significativo
+        na qualidade do OCR para fotos de exames laboratoriais.
+        """
+
+        # 1. Redimensionar se necessário (rápido, evita imagens enormes)
         image = self._resize_if_needed(image)
-        
-        # 2. Corrigir orientação
+
+        # 2. Corrigir orientação EXIF (rápido, essencial para fotos de celular)
         image = self._correct_orientation(image)
-        
-        # 3. Melhorar contraste
+
+        # 3. Melhorar contraste apenas se necessário (rápido)
         image = self._enhance_contrast(image)
-        
-        # 4. Reduzir ruído
-        image = self._reduce_noise(image)
-        
-        # 5. Binarização inteligente
-        image = self._smart_binarization(image)
-        
-        # 6. Correção de perspectiva (se necessário)
-        image = self._correct_perspective(image)
-        
+
+        # Passos removidos por performance:
+        # - _reduce_noise (bilateralFilter: ~3s) — PaddleOCR lida bem com ruído
+        # - _smart_binarization (~2s) — PaddleOCR faz internamente
+        # - _correct_perspective (Canny+HoughLines: ~2s) — angle_cls do PaddleOCR corrige
+
         return image
     
     def _resize_if_needed(self, image: Image.Image) -> Image.Image:
