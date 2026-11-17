@@ -52,25 +52,11 @@ class MedicalOCRProcessor:
                 use_space_char=self.config.USE_SPACE_CHAR
             )
             
-            # Inicializar PP-Structure para layout e tabelas
-            try:
-                from paddleocr import PPStructure
-                # O modelo de layout do PP-Structure suporta apenas 'en' e 'ch'.
-                # Usamos 'en' para análise de layout, o OCR principal ainda usará 'pt'.
-                structure_lang = 'en'
-                self.structure_engine = PPStructure(
-                    use_gpu=self.config.ENABLE_GPU,
-                    show_log=False,
-                    lang=structure_lang,
-                    layout=True,
-                    table=True,
-                    ocr=True
-                )
-                logger.info("PP-Structure inicializado com sucesso", lang=structure_lang)
-            except Exception as e:
-                logger.warning("PP-Structure não disponível", error=str(e))
-                self.structure_engine = None
-            
+            # PP-Structure não é carregado: em páginas de laudo ele classificava o
+            # conteúdo como "figura" e devolvia a página sem texto. PDFs sem camada
+            # de texto usam o mesmo OCR das fotos (ver _process_image_array).
+            self.structure_engine = None
+
             logger.info("PaddleOCR inicializado com sucesso", 
                        gpu_enabled=self.config.ENABLE_GPU,
                        language=self.config.PADDLE_OCR_LANG)
@@ -286,10 +272,9 @@ class MedicalOCRProcessor:
 
         try:
             confidence_threshold = kwargs.get('confidence_threshold', self.config.CONFIDENCE_THRESHOLD)
-            # Fonte da chamada: PDF pages podem usar PP-Structure, imagens diretas não
+            # Página de PDF é uma tabela de laudo: cada linha visual (nome, resultado,
+            # referência) precisa sair junta, senão o valor pode se afastar do nome.
             from_pdf = kwargs.get('_from_pdf', False)
-            extract_tables = kwargs.get('extract_tables', True) and from_pdf
-            extract_layout = kwargs.get('extract_layout', True) and from_pdf
 
             result = {
                 'text': '',
@@ -299,20 +284,8 @@ class MedicalOCRProcessor:
                 'processing_time': 0
             }
 
-            # PP-Structure APENAS para páginas de PDF (onde há tabelas complexas)
-            # Para imagens diretas (fotos de exame), usar OCR básico — 5-10x mais rápido
-            if self.structure_engine and (extract_tables or extract_layout):
-                try:
-                    structure_result = self._process_with_structure(image, **kwargs)
-                    result.update(structure_result)
-                except Exception as e:
-                    logger.warning("Erro no PP-Structure, usando OCR básico", error=str(e))
-                    basic_result = self._process_with_basic_ocr(image, confidence_threshold)
-                    result.update(basic_result)
-            else:
-                # OCR básico — rápido e suficiente para fotos de exames
-                basic_result = self._process_with_basic_ocr(image, confidence_threshold)
-                result.update(basic_result)
+            basic_result = self._process_with_basic_ocr(image, confidence_threshold, group_rows=from_pdf)
+            result.update(basic_result)
 
             result['processing_time'] = time.time() - start_time
             return result
@@ -321,80 +294,7 @@ class MedicalOCRProcessor:
             logger.error("Erro no processamento da imagem", error=str(e))
             raise
     
-    def _process_with_structure(self, image: np.ndarray, **kwargs) -> Dict[str, Any]:
-        """Processa imagem com PP-Structure para layout e tabelas"""
-        try:
-            # Processar com PP-Structure
-            structure_result = self.structure_engine(image)
-            
-            text_parts = []
-            tables = []
-            layout_elements = []
-            all_words = []
-            confidences = []
-            
-            for region in structure_result:
-                region_type = region.get('type', 'text')
-                region_bbox = region.get('bbox', [0, 0, 0, 0])
-                region_confidence = region.get('confidence', 0.0)
-                
-                if region_confidence > 0:
-                    confidences.append(region_confidence)
-                
-                # Processar diferentes tipos de região
-                if region_type == 'text':
-                    if 'res' in region:
-                        for line in region['res']:
-                            if isinstance(line, list) and len(line) >= 2:
-                                line_text = line[1]
-                                line_confidence = line[0] if isinstance(line[0], (int, float)) else 0.8
-                                
-                                if line_confidence >= kwargs.get('confidence_threshold', 0.7):
-                                    text_parts.append(line_text)
-                                    
-                                    # Adicionar palavras individuais
-                                    words = line_text.split()
-                                    for word in words:
-                                        all_words.append({
-                                            'text': word,
-                                            'confidence': line_confidence,
-                                            'bbox': region_bbox  # Simplificado
-                                        })
-                
-                elif region_type == 'table':
-                    table_data = self._extract_table_data(region)
-                    if table_data:
-                        tables.append(table_data)
-                        # Adicionar texto da tabela ao texto geral
-                        table_text = self._table_to_text(table_data)
-                        text_parts.append(f"\n[TABELA]\n{table_text}\n[/TABELA]\n")
-                
-                # Adicionar elemento de layout
-                layout_elements.append({
-                    'type': region_type,
-                    'bbox': region_bbox,
-                    'confidence': region_confidence,
-                    'content': region.get('res', '')
-                })
-            
-            # Combinar texto
-            combined_text = '\n'.join(text_parts)
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-            
-            return {
-                'text': combined_text,
-                'confidence': avg_confidence,
-                'words': all_words,
-                'tables': tables,
-                'layout': layout_elements,
-                'method': 'pp_structure'
-            }
-            
-        except Exception as e:
-            logger.error("Erro no PP-Structure", error=str(e))
-            raise
-    
-    def _process_with_basic_ocr(self, image: np.ndarray, confidence_threshold: float) -> Dict[str, Any]:
+    def _process_with_basic_ocr(self, image: np.ndarray, confidence_threshold: float, group_rows: bool = False) -> Dict[str, Any]:
         """Processa imagem com OCR básico do PaddleOCR"""
         try:
             # OCR básico
@@ -411,6 +311,7 @@ class MedicalOCRProcessor:
             text_parts = []
             all_words = []
             confidences = []
+            kept_boxes = []
             
             for line in ocr_result[0]:
                 if len(line) >= 2:
@@ -424,6 +325,7 @@ class MedicalOCRProcessor:
                         if confidence >= confidence_threshold:
                             text_parts.append(text)
                             confidences.append(confidence)
+                            kept_boxes.append((bbox, text))
                             
                             # Adicionar palavras individuais
                             words = text.split()
@@ -434,6 +336,9 @@ class MedicalOCRProcessor:
                                     'bbox': bbox
                                 })
             
+            if group_rows:
+                text_parts = self._boxes_to_row_lines(kept_boxes)
+
             combined_text = '\n'.join(text_parts)
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
             
@@ -448,36 +353,50 @@ class MedicalOCRProcessor:
             logger.error("Erro no OCR básico", error=str(e))
             raise
     
-    def _extract_table_data(self, table_region: Dict) -> Optional[Dict]:
-        """Extrai dados estruturados de uma tabela"""
-        try:
-            if 'res' not in table_region:
-                return None
-            
-            table_html = table_region['res']
-            
-            # Aqui você implementaria a extração de dados da tabela HTML
-            # Por simplicidade, vou retornar uma estrutura básica
-            return {
-                'type': 'table',
-                'bbox': table_region.get('bbox', []),
-                'confidence': table_region.get('confidence', 0.8),
-                'html': table_html,
-                'rows': [],  # Seria extraído do HTML
-                'headers': []  # Seria extraído do HTML
-            }
-            
-        except Exception as e:
-            logger.warning("Erro na extração de tabela", error=str(e))
-            return None
-    
-    def _table_to_text(self, table_data: Dict) -> str:
-        """Converte dados de tabela para texto"""
-        try:
-            # Implementação simplificada
-            return f"[Tabela detectada - {table_data.get('confidence', 0):.2f} confiança]"
-        except:
-            return "[Tabela detectada]"
+    @staticmethod
+    def _boxes_to_row_lines(boxes: List[Any]) -> List[str]:
+        """
+        Junta as caixas de texto que estão na mesma linha visual, da esquerda
+        para a direita, e devolve uma string por linha.
+
+        O PaddleOCR devolve uma caixa por célula; em tabelas a ordem entre caixas
+        vizinhas pode se inverter (o resultado sai antes do nome do exame).
+        Duas caixas são da mesma linha quando o centro vertical de uma está a
+        menos de meia altura (da menor das duas) do centro da linha.
+        """
+        entries = []
+        for bbox, text in boxes:
+            try:
+                xs = [float(point[0]) for point in bbox]
+                ys = [float(point[1]) for point in bbox]
+            except (TypeError, ValueError, IndexError):
+                continue
+            if not xs or not ys:
+                continue
+            entries.append({
+                'x': min(xs),
+                'y': sum(ys) / len(ys),
+                'h': max(max(ys) - min(ys), 1.0),
+                'text': text,
+            })
+
+        entries.sort(key=lambda entry: entry['y'])
+
+        rows: List[Dict[str, Any]] = []
+        for entry in entries:
+            row = rows[-1] if rows else None
+            if row is not None and abs(entry['y'] - row['y']) <= 0.5 * min(entry['h'], row['h']):
+                row['items'].append(entry)
+                count = len(row['items'])
+                row['y'] += (entry['y'] - row['y']) / count
+                row['h'] += (entry['h'] - row['h']) / count
+            else:
+                rows.append({'y': entry['y'], 'h': entry['h'], 'items': [entry]})
+
+        return [
+            '  '.join(item['text'] for item in sorted(row['items'], key=lambda item: item['x']))
+            for row in rows
+        ]
     
     def get_supported_formats(self) -> List[str]:
         """Retorna formatos suportados"""
